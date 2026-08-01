@@ -456,4 +456,420 @@ function buildBatchPrompt(weapons, filterType) {
   const list = targets.map(function(w){ return '- ' + w.name + '（' + w.type + '）id:"' + w.id + '" 参照:' + w.source; }).join('\n');
   return {
     count: targets.length,
-    text: 'ドラクエウォークの★5武器 ' + targets.length + '本のデータを、9db.jp（みんドラ）の各個別武器ページをweb検索・参照して、JSON配列として作成してく
+    text: 'ドラクエウォークの★5武器 ' + targets.length + '本のデータを、9db.jp（みんドラ）の各個別武器ページをweb検索・参照して、JSON配列として作成してください。\n\n【対象武器】\n' + list + '\n\n'
+      + COMMON_RULES + '\n- idは上記リストの値をそのまま使うこと\n\n【1武器あたりのJSON形式】\n' + JSON_SCHEMA_BLOCK
+      + '\n\n全武器分を1つのJSON配列 [ {...}, {...} ] として、JSONのみ出力してください（説明文・コードブロック記号は不要）。'
+  };
+}
+
+/* ---- インポート ---- */
+function importWeapons(jsonText, current) {
+  let parsed;
+  try { parsed = JSON.parse(jsonText); }
+  catch (e) {
+    const stripped = jsonText.replace(/```json|```/g, '').trim();
+    try { parsed = JSON.parse(stripped); }
+    catch (e2) { return { ok: false, msg: 'JSONの解析に失敗：' + e2.message }; }
+  }
+  const arr = Array.isArray(parsed) ? parsed : [parsed];
+  for (let i = 0; i < arr.length; i++) {
+    const w = arr[i];
+    if (!w.id || !w.name || !w.type || !w.inherit) {
+      return { ok: false, msg: (i+1) + '件目の武器で id / name / type / inherit のいずれかが欠けています' };
+    }
+  }
+  const map = new Map(current.map(function(w){ return [w.id, w]; }));
+  arr.forEach(function(w){
+    map.set(w.id, Object.assign({ verified: false, skills: [], ikinari: [], chosen: [], passives: [], limitBreakEffects: [], rarity: 5 }, w));
+  });
+  return { ok: true, msg: arr.length + '件の武器を取り込みました（同IDは上書き）', weapons: Array.from(map.values()) };
+}
+
+/* ============ アプリ状態 ============ */
+const LS_KEY = 'dqw-keisho-db-v3';
+const LS_THEME = 'dqw-keisho-theme';
+let weapons, state = { tab: 'steal', baseId: 'maou_no_ken', inhId: '', rendo: 10, lb: 0, filterType: 'すべて', dbListFilter: 'all' };
+
+function lsGet(k) { try { return localStorage.getItem(k); } catch(e) { return null; } }
+function lsSet(k, v) { try { localStorage.setItem(k, v); } catch(e) {} }
+
+function loadWeapons() {
+  const raw = lsGet(LS_KEY);
+  if (raw) { try { const p = JSON.parse(raw); if (Array.isArray(p) && p.length) return p; } catch(e) {} }
+  return seedWeapons();
+}
+function persist() { lsSet(LS_KEY, JSON.stringify(weapons)); }
+
+const $ = function(id) { return document.getElementById(id); };
+function esc(s) { return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function chip(color, text) { return '<span class="chip" style="background:'+color+'22;border:1px solid '+color+'88;color:'+color+'">'+esc(text)+'</span>'; }
+
+/* ============ テーマ ============ */
+function applyTheme(theme) {
+  document.body.classList.toggle('light', theme === 'light');
+  $('themeBtn').textContent = theme === 'light' ? '🌙' : '☀️';
+  lsSet(LS_THEME, theme);
+}
+$('themeBtn').addEventListener('click', function() {
+  applyTheme(document.body.classList.contains('light') ? 'dark' : 'light');
+});
+
+/* ============ タブ ============ */
+function showTab(tab) {
+  state.tab = tab;
+  ['steal','sim','db'].forEach(function(x) {
+    $('pane-' + x).classList.toggle('hidden', x !== tab);
+    $('tab-' + x).classList.toggle('active', x === tab);
+  });
+  if (tab === 'steal') renderSteal();
+  if (tab === 'sim') renderSim();
+  if (tab === 'db') renderDB();
+}
+$('tab-steal').addEventListener('click', function(){ showTab('steal'); });
+$('tab-sim').addEventListener('click', function(){ showTab('sim'); });
+$('tab-db').addEventListener('click', function(){ showTab('db'); });
+
+/* ============ 奪取タブ ============ */
+function fillTypeSelect(sel, withAll) {
+  let html = withAll ? '<option value="すべて">全種</option>' : '';
+  WEAPON_TYPES.forEach(function(t){ html += '<option value="'+t+'">'+t+'</option>'; });
+  sel.innerHTML = html;
+}
+function renderSteal() {
+  const list = stealTargets(weapons, $('stealSearch').value.trim(), $('stealType').value || 'すべて');
+  let html = '';
+  list.forEach(function(item) {
+    const w = item.weapon, top = item.top, unst = item.unstealable;
+    html += '<div class="card steal-card' + (top ? '' : ' nodata') + '" style="margin-bottom:10px;border-color:' + (top ? (unst ? '#d86a6a66' : '#d88a3a66') : 'var(--cardBorder)') + '">';
+    html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:' + (top ? '8px' : '0') + '">';
+    html += '<span style="font-size:13px;font-weight:700;flex:1">' + esc(w.name) + '</span>';
+    html += chip('#7aa8f0', w.type);
+    if (!w.verified) html += chip('#e0632f', '⚠️');
+    html += '</div>';
+    if (top) {
+      html += '<div class="steal-inner' + (unst ? ' unst' : '') + '">';
+      html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap">';
+      html += '<span style="font-size:10px;font-weight:700;color:' + (unst ? '#d86a6a' : '#e0a04b') + '">' + (unst ? '⛔ 奪取不可' : '✋ 奪取対象（一番上のいきなり）') + '</span>';
+      html += '<span style="font-size:13px;font-weight:700;color:' + (unst ? '#d89a9a' : 'var(--skillName)') + '">' + esc(top.name) + '</span>';
+      if (top.cond) html += chip('#9a6fd0', top.cond);
+      html += '</div>';
+      html += '<div style="font-size:11.5px;color:var(--skillDesc);line-height:1.6">' + esc(top.desc || '効果データなし') + '</div>';
+
+      if (w.skills && w.skills.length > 0) {
+        html += '<div style="margin-top:12px;border-top:1px dashed var(--divider);padding-top:8px;">';
+        html += '<div style="font-size:11px;font-weight:700;color:var(--gold);margin-bottom:6px">🗡️ 通常スキル</div>';
+        w.skills.forEach(function(s) {
+          html += '<div style="margin-bottom:6px;">';
+          html += '<div style="display:flex;justify-content:space-between;font-size:12.5px;font-weight:700;color:var(--skillName)"><span>' + esc(s.name) + (s.cond ? '〔' + esc(s.cond) + '〕' : '') + '</span><span style="font-size:10px;color:var(--textFaint)">MP ' + esc(s.mp || '?') + '</span></div>';
+          html += '<div style="font-size:11px;color:var(--skillDesc);line-height:1.5">' + esc(s.desc || '効果データなし') + '</div>';
+          html += '</div>';
+        });
+        html += '</div>';
+      }
+
+      if (w.ikinari && w.ikinari.length > 1) {
+        html += '<div style="margin-top:6px;border-top:1px dashed var(--divider);padding-top:8px;">';
+        html += '<div style="font-size:11px;font-weight:700;color:#d88a3a;margin-bottom:6px">⚡ 他のいきなり（上をOFFにすると奪取対象）</div>';
+        for (let i = 1; i < w.ikinari.length; i++) {
+          const ik = w.ikinari[i];
+          html += '<div style="margin-bottom:6px;">';
+          html += '<div style="font-size:12.5px;font-weight:700;color:var(--skillName)">' + esc(ik.name) + (ik.cond ? '〔' + esc(ik.cond) + '〕' : '') + '</div>';
+          html += '<div style="font-size:11px;color:var(--skillDesc);line-height:1.5">' + esc(ik.desc || '効果データなし') + '</div>';
+          html += '</div>';
+        }
+        html += '</div>';
+      }
+
+      html += '</div>';
+    } else {
+      html += '<div style="font-size:11px;color:var(--textFaint)">いきなりスキルのデータ未登録（DB管理の取得用プロンプトで埋めると表示されます）</div>';
+    }
+    html += '</div>';
+  });
+  $('stealList').innerHTML = html || '<div class="note">該当する武器がありません</div>';
+}
+$('stealSearch').addEventListener('input', renderSteal);
+$('stealType').addEventListener('change', renderSteal);
+
+/* ============ 継承タブ ============ */
+function renderSim() {
+  const filtered = weapons.filter(function(w){ return (state.filterType === 'すべて' || w.type === state.filterType) && w.id !== state.inhId; });
+  if (state.baseId && !filtered.some(function(w){ return w.id === state.baseId; })) { state.baseId = ''; state.inhId = ''; }
+  let html = '<option value="">選択してください</option>';
+  filtered.forEach(function(w){
+    html += '<option value="' + w.id + '"' + (w.id === state.baseId ? ' selected' : '') + '>' + (w.verified ? '✅' : '⚠️') + ' ' + esc(w.name) + '（' + w.type + '）</option>';
+  });
+  $('baseSel').innerHTML = html;
+
+  const base = weapons.find(function(w){ return w.id === state.baseId; });
+
+  let info = '';
+  if (base) {
+    info += chip('#7aa8f0', base.type) + chip('#e0a04b', base.attribute);
+    if (base.attack0 != null) info += chip('#d86a6a', '攻 ' + base.attack0 + '〜' + base.attack4);
+    if (!base.verified) info += chip('#e0632f', '⚠️ データ未検証');
+    if (checkDeficient(base)) info += chip('#d86a6a', '🚨 データ不備');
+  }
+  $('baseInfo').innerHTML = info ? '<div style="margin-top:8px">' + info + '</div>' : '';
+
+  let lbHtml = '';
+  [0,1,2,3,4].forEach(function(v){
+    lbHtml += '<button class="btn' + (state.lb === v ? ' active' : '') + '" data-lb="' + v + '">' + v + '凸</button>';
+  });
+  $('lbBtns').innerHTML = lbHtml;
+  Array.prototype.forEach.call($('lbBtns').children, function(b){
+    b.addEventListener('click', function(){ state.lb = Number(b.dataset.lb); renderSim(); });
+  });
+
+  const cands = base ? weapons.filter(function(w){ return w.type === base.type && w.id !== base.id; }) : [];
+  let inhHtml = '<option value="">（継承なし）</option>';
+  cands.forEach(function(w){
+    inhHtml += '<option value="' + w.id + '"' + (w.id === state.inhId ? ' selected' : '') + '>' + (w.verified ? '✅' : '⚠️') + ' ' + esc(w.name) + '</option>';
+  });
+  $('inhSel').innerHTML = inhHtml;
+  $('inhSel').disabled = !base;
+  $('inhNote').textContent = !base ? '先にベース武器を選択してください' : (cands.length === 0 ? '同じ武器種（' + base.type + '）の他武器がDBにありません' : '');
+
+  const inh = weapons.find(function(w){ return w.id === state.inhId; });
+  $('rendoBox').classList.toggle('hidden', !inh);
+  if (inh) {
+    let rHtml = '';
+    [1,4,10].forEach(function(r){
+      rHtml += '<button class="btn' + (state.rendo === r ? ' active' : '') + '" data-r="' + r + '">練度' + r + '</button>';
+    });
+    $('rendoBtns').innerHTML = rHtml;
+    Array.prototype.forEach.call($('rendoBtns').children, function(b){
+      b.addEventListener('click', function(){ state.rendo = Number(b.dataset.r); renderSim(); });
+    });
+  }
+
+  const res = simulate(base, inh, state.rendo, state.lb);
+  if (!res || !base) { $('resultBox').innerHTML = '<div class="card" style="text-align:center;color:var(--textFaint);border-style:dashed">武器を選択してください</div>'; return; }
+
+  let r = '<div class="card" style="border-color:#c9a24b55">';
+  r += '<div style="border-bottom:1px solid var(--divider);padding-bottom:10px;margin-bottom:4px">';
+  r += '<div style="font-size:11px;letter-spacing:2px;color:var(--gold)">― 合成結果 ―</div>';
+  r += '<div style="font-size:16px;font-weight:700;color:var(--title);margin-top:4px">' + esc(base.name) + ' <span style="font-size:11px;color:var(--textFaint)">' + state.lb + '凸</span>';
+  if (inh) r += ' <span style="color:#5fbf8f">＋ ' + esc(inh.name) + ' <span style="font-size:11px;color:var(--textFaint)">練度' + state.rendo + '</span></span>';
+  r += '</div>';
+  if (res.atk != null) r += '<div style="margin-top:6px">' + chip('#d86a6a', '攻撃力 ' + res.atk + (state.lb !== 0 && state.lb !== 4 ? '（補間値）' : '')) + '</div>';
+  r += '</div>';
+
+  r += '<div class="section-title">使用可能なスキル</div>';
+  res.skills.concat(res.inheritedSkills).forEach(function(s){
+    const inherited = s.from === 'inherit';
+    r += '<div class="skill-card' + (inherited ? ' inherited' : '') + '">';
+    r += '<div style="display:flex;justify-content:space-between;gap:8px"><span class="name">' + (inherited ? '【継承】' : '') + esc(s.name) + (s.cond ? '〔' + esc(s.cond) + '〕' : '') + '</span><span class="mp">MP ' + esc(s.mp) + '</span></div>';
+    r += '<div class="desc">' + esc(s.desc) + '</div></div>';
+  });
+
+  if (base.ikinari.length || base.chosen.length) {
+    r += '<div class="section-title">いきなり・挑戦スキル（ベース武器のみ／継承不可）</div>';
+    base.ikinari.forEach(function(s){
+      r += '<div class="mini-line"><span class="tag" style="color:#d88a3a">【いきなり】</span><span class="name">' + esc(s.name) + (s.cond ? '〔' + esc(s.cond) + '〕' : '') + '</span><div class="desc">' + esc(s.desc) + '</div></div>';
+    });
+    base.chosen.forEach(function(s){
+      r += '<div class="mini-line"><span class="tag" style="color:#9a6fd0">【挑戦】</span><span class="name">' + esc(s.name) + '</span><div class="desc">' + esc(s.desc) + '</div></div>';
+    });
+  }
+
+  r += '<div class="section-title">特殊効果</div>';
+  const allP = res.passives.concat(res.inheritedPassives);
+  if (allP.length === 0) r += '<div class="note">特殊効果データがありません</div>';
+  allP.forEach(function(p){
+    let tag, color;
+    if (p.from === 'base') { tag = 'ベース'; color = '#7aa8f0'; }
+    else if (p.from === 'lb') { tag = '凸'; color = '#d86a6a'; }
+    else { tag = '継承 練度' + p.from.replace('inherit-r',''); color = '#5fbf8f'; }
+    r += '<div class="passive-row">' + chip(color, tag) + '<span>' + esc(p.text) + '</span></div>';
+  });
+
+  r += '<div class="note" style="text-align:right;margin-top:8px">出典: ' + esc(base.source) + (inh ? ' ／ ' + esc(inh.source) : '') + '</div>';
+  r += '</div>';
+  $('resultBox').innerHTML = r;
+}
+$('filterType').addEventListener('change', function(){ state.filterType = this.value; renderSim(); });
+$('baseSel').addEventListener('change', function(){ state.baseId = this.value; state.inhId = ''; renderSim(); });
+$('inhSel').addEventListener('change', function(){ state.inhId = this.value; renderSim(); });
+
+/* ============ DB管理タブ ============ */
+function renderDB() {
+  const vn = weapons.filter(function(w){ return w.verified; }).length;
+  let defCnt = 0;
+  
+  let targetWeapons = weapons;
+  if (state.dbListFilter === 'unverified') {
+    targetWeapons = weapons.filter(function(w){ return !w.verified; });
+  } else if (state.dbListFilter === 'deficient') {
+    targetWeapons = weapons.filter(function(w){ return checkDeficient(w); });
+  }
+
+  weapons.forEach(function(w){ if (checkDeficient(w)) defCnt++; });
+
+  $('dbCountLabel').textContent = '登録武器一覧（全' + weapons.length + '件 ／ ✅検証済 ' + vn + '件 ／ 🚨不備 ' + defCnt + '件）';
+  
+  let html = '';
+  if (targetWeapons.length === 0) {
+    html = '<div class="note" style="text-align:center;padding:10px 0">該当する武器がありません</div>';
+  } else {
+    targetWeapons.forEach(function(w){
+      const isDef = checkDeficient(w);
+      html += '<div class="db-row"><span style="font-size:14px">' + (isDef ? '🚨' : (w.verified ? '✅' : '⚠️')) + '</span>';
+      html += '<div class="info"><div class="nm">' + esc(w.name) + '</div><div class="src">' + esc(w.type) + ' ／ ' + esc(w.source) + '</div></div>';
+      if (!w.verified || isDef) html += '<button class="btn" data-wid="' + w.id + '">再取得プロンプト</button>';
+      html += '</div>';
+    });
+  }
+  $('dbList').innerHTML = html;
+  
+  Array.prototype.forEach.call($('dbList').querySelectorAll('button[data-wid]'), function(b){
+    b.addEventListener('click', function(){
+      const w = weapons.find(function(x){ return x.id === b.dataset.wid; });
+      outputToIO(buildSinglePrompt(w), '「' + w.name + '」の再取得プロンプトを生成しました');
+    });
+  });
+
+  let bHtml = '<option value="すべて">⚠️未検証すべての武器種（' + weapons.filter(function(w){return !w.verified;}).length + '本）</option>';
+  if (defCnt > 0) {
+    bHtml += '<option value="deficient_only">🚨データ不備の武器のみ（' + defCnt + '本）</option>';
+  }
+  WEAPON_TYPES.forEach(function(t){
+    const n = weapons.filter(function(w){ return !w.verified && w.type === t; }).length;
+    if (n > 0) bHtml += '<option value="' + t + '">⚠️未検証「' + t + '」のみ（' + n + '本）</option>';
+  });
+  $('batchType').innerHTML = bHtml;
+}
+
+$('dbListFilter').addEventListener('change', function(){
+  state.dbListFilter = this.value;
+  renderDB();
+});
+
+function outputToIO(text, successMsg) {
+  $('ioArea').value = text;
+  $('ioArea').scrollIntoView({ behavior: 'smooth', block: 'center' });
+  let msg = '✅ ' + successMsg + '（下の欄に表示中）';
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text)
+      .then(function(){ $('ioMsg').textContent = msg + ' ※クリップボードにもコピー済み'; })
+      .catch(function(){ $('ioMsg').textContent = msg + ' ※コピー権限なし→欄を長押し全選択でコピーしてください'; });
+  } else {
+    $('ioMsg').textContent = msg + ' ※欄を長押し全選択でコピーしてください';
+  }
+  $('ioMsg').textContent = msg;
+}
+
+$('batchBtn').addEventListener('click', function(){
+  const bp = buildBatchPrompt(weapons, $('batchType').value);
+  if (!bp) { $('ioMsg').textContent = '✅ 対象の武器がありません'; return; }
+  outputToIO(bp.text, '対象' + bp.count + '本の一括取得プロンプトを生成しました');
+});
+
+$('newBtn').addEventListener('click', function(){
+  const name = $('newName').value.trim();
+  if (!name) { $('ioMsg').textContent = '❌ 武器名を入力してください'; return; }
+  const genId = 'w_' + Date.now().toString(36);
+  outputToIO(buildNewPrompt(name, $('newType').value, genId), '「' + name + '」の取得プロンプトを生成しました');
+  $('newName').value = '';
+});
+
+function doImport(text, sourceLabel) {
+  const result = importWeapons(text, weapons);
+  if (result.ok) {
+    weapons = result.weapons; persist();
+    $('ioArea').value = '';
+    $('ioMsg').textContent = '✅ [' + sourceLabel + '] ' + result.msg;
+    renderDB();
+  } else {
+    $('ioMsg').textContent = '❌ [' + sourceLabel + '] ' + result.msg + '（文字数が多いと貼り付けで切れることがあります。ファイル取り込みもお試しください）';
+  }
+}
+
+$('importBtn').addEventListener('click', function(){
+  doImport($('ioArea').value, '貼り付け');
+});
+
+$('fileInput').addEventListener('change', function(e){
+  const file = e.target.files && e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(ev){ doImport(ev.target.result, 'ファイル:' + file.name); e.target.value = ''; };
+  reader.onerror = function(){ $('ioMsg').textContent = '❌ ファイルの読み込みに失敗しました'; };
+  reader.readAsText(file, 'utf-8');
+});
+
+$('ioArea').addEventListener('input', function(){
+  const n = this.value.length;
+  $('lenNote').textContent = n > 0 ? '現在 ' + n.toLocaleString() + ' 文字（数千〜1万文字を超える場合は途中で切れていないか末尾の "}]" の有無を確認、または上のファイル取り込みを推奨）' : '';
+});
+
+$('copyBtn').addEventListener('click', function(){
+  const ta = $('ioArea');
+  ta.focus(); ta.select(); ta.setSelectionRange(0, ta.value.length);
+  let copied = false;
+  try { copied = document.execCommand('copy'); } catch(e) {}
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(ta.value)
+      .then(function(){ $('ioMsg').textContent = '✅ コピーしました'; })
+      .catch(function(){ $('ioMsg').textContent = copied ? '✅ コピーしました' : '❌ コピー不可。長押し全選択で手動コピーしてください（全選択済み）'; });
+  } else {
+    $('ioMsg').textContent = copied ? '✅ コピーしました' : '❌ 手動コピーしてください（全選択済み）';
+  }
+});
+
+$('exportBtn').addEventListener('click', function(){
+  const text = JSON.stringify(weapons, null, 2);
+  try {
+    const blob = new Blob([text], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'dqw-weapons-' + new Date().toISOString().slice(0,10) + '.json';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    $('ioMsg').textContent = '✅ dqw-weapons-*.json としてダウンロードしました（' + weapons.length + '件）';
+  } catch (e) {
+    outputToIO(text, '全データ（' + weapons.length + '件）を書き出しました（ダウンロード不可のため下の欄に出力）');
+  }
+});
+
+$('resetBtn').addEventListener('click', function(){
+  if (confirm('DBをシードデータに初期化します。追加した武器は消えます。よろしいですか？')) {
+    weapons = seedWeapons(); persist(); renderDB();
+    $('ioMsg').textContent = 'DBを初期化しました';
+  }
+});
+
+/* ============ 起動 ============ */
+function boot(initialWeapons) {
+  weapons = initialWeapons;
+  applyTheme(lsGet(LS_THEME) || 'dark');
+  fillTypeSelect($('stealType'), true);
+  (function(){
+    let fHtml = '<option value="すべて">全種</option>';
+    WEAPON_TYPES.forEach(function(t){ fHtml += '<option value="' + t + '">' + t + '</option>'; });
+    $('filterType').innerHTML = fHtml;
+  })();
+  fillTypeSelect($('newType'), false);
+  $('dbListFilter').value = state.dbListFilter;
+  showTab('steal');
+}
+
+(function initApp(){
+  const local = lsGet(LS_KEY);
+  if (local) { try { const p = JSON.parse(local); if (Array.isArray(p) && p.length) { boot(p); return; } } catch(e) {} }
+  let booted = false;
+  const bootOnce = function(w) { if (booted) return; booted = true; boot(w); };
+  const timeoutId = setTimeout(function(){ bootOnce(seedWeapons()); }, 2500);
+  try {
+    if (typeof fetch !== 'function') throw new Error('fetch unavailable');
+    fetch('./weapons.json').then(function(r){ if (!r.ok) throw 0; return r.json(); })
+      .then(function(j){ clearTimeout(timeoutId); bootOnce(Array.isArray(j) && j.length ? j : seedWeapons()); })
+      .catch(function(){ clearTimeout(timeoutId); bootOnce(seedWeapons()); });
+  } catch (e) {
+    clearTimeout(timeoutId);
+    bootOnce(seedWeapons());
+  }
+})();
+</script>
+</body>
+</html>
