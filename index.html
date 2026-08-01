@@ -1,0 +1,750 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>DQW 武器継承シミュレーター</title>
+<style>
+:root {
+  --pageBg: linear-gradient(180deg,#0e1230 0%,#090b1e 100%);
+  --text:#e9e4d4; --textSub:#c4bfd8; --textFaint:#7a76a0; --textFainter:#565278;
+  --cardBg:#171b3d; --cardBorder:#333866; --inputBg:#101335; --innerBg:#12153a; --divider:#24284f;
+  --gold:#c9a24b; --goldText:#e0c98a; --title:#f4ecd0;
+  --btnText:#a8a2c4; --btnActiveText:#14102a;
+  --skillName:#f0b088; --skillDesc:#b0aac8;
+}
+body.light {
+  --pageBg: linear-gradient(180deg,#f7f3e8 0%,#efe9da 100%);
+  --text:#3a3226; --textSub:#5a5244; --textFaint:#8a8272; --textFainter:#a89f8c;
+  --cardBg:#fffdf6; --cardBorder:#d8cdb0; --inputBg:#faf6ea; --innerBg:#f5efdf; --divider:#e5dcc4;
+  --gold:#a9822f; --goldText:#8a6a20; --title:#4a3b2c;
+  --btnText:#7a7060; --btnActiveText:#fffdf6;
+  --skillName:#a85a20; --skillDesc:#6a6252;
+}
+* { box-sizing: border-box; margin: 0; }
+body {
+  min-height: 100vh; background: var(--pageBg); background-attachment: fixed; color: var(--text);
+  font-family: system-ui, -apple-system, 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', 'Yu Gothic UI', Meiryo, sans-serif;
+  padding-bottom: 40px; font-size: 14px;
+}
+.wrap { max-width: 560px; margin: 0 auto; padding: 0 12px; }
+.header { text-align: center; padding: 22px 0 14px; position: relative; }
+.header .eyebrow { font-size: 10px; letter-spacing: 4px; color: var(--gold); }
+.header h1 { font-size: 22px; margin: 4px 0 2px; color: var(--title); letter-spacing: 1px; font-weight: 700; }
+.header .sub { font-size: 10px; color: var(--textFaint); }
+#themeBtn { position: absolute; right: 14px; top: 18px; width: 40px; height: 40px; border-radius: 50%; border: 1px solid var(--cardBorder); background: var(--cardBg); color: var(--text); font-size: 17px; cursor: pointer; }
+.tabs { display: flex; gap: 8px; margin-bottom: 14px; }
+.card { background: var(--cardBg); border: 1px solid var(--cardBorder); border-radius: 14px; padding: 14px; margin-bottom: 14px; }
+.label { font-size: 11px; color: var(--gold); font-weight: 700; letter-spacing: 1px; margin-bottom: 8px; }
+select, input[type=text], textarea {
+  width: 100%; background: var(--inputBg); border: 1px solid var(--cardBorder); color: var(--text);
+  border-radius: 8px; padding: 10px 12px; font-size: 14px; font-family: inherit;
+}
+textarea { min-height: 120px; font-family: ui-monospace, monospace; font-size: 11px; resize: vertical; }
+.btn {
+  flex: 1; padding: 10px 0; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer;
+  font-family: inherit; border: 1px solid var(--cardBorder); background: var(--inputBg); color: var(--btnText);
+}
+.btn.active { border-color: var(--gold); background: linear-gradient(135deg,#c9a24b,#a9822f); color: var(--btnActiveText); }
+.btn.full { width: 100%; flex: none; }
+.btn.danger { color: #d86a6a; border-color: #d86a6a66; }
+.chip { display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 6px; margin: 0 6px 4px 0; }
+.row { display: flex; gap: 8px; margin-bottom: 8px; }
+.skill-card { background: var(--innerBg); border: 1px solid var(--cardBorder); border-left: 3px solid #e0632f; border-radius: 10px; padding: 10px 12px; margin-bottom: 8px; }
+.skill-card.inherited { border-left-color: #5fbf8f; }
+.skill-card .name { font-weight: 700; font-size: 13px; color: var(--skillName); }
+.skill-card.inherited .name { color: #5fbf8f; }
+.skill-card .mp { font-size: 10px; color: var(--textFaint); border: 1px solid var(--cardBorder); border-radius: 6px; padding: 1px 7px; white-space: nowrap; }
+.skill-card .desc { font-size: 11.5px; color: var(--skillDesc); line-height: 1.6; margin-top: 4px; }
+.section-title { font-size: 12px; font-weight: 700; color: var(--gold); margin: 14px 0 8px; letter-spacing: 1px; }
+.mini-line { padding: 6px 0; border-bottom: 1px solid var(--divider); }
+.mini-line .tag { font-size: 10px; font-weight: 700; margin-right: 6px; }
+.mini-line .name { font-size: 12.5px; font-weight: 700; }
+.mini-line .desc { font-size: 11px; color: var(--skillDesc); line-height: 1.5; margin-top: 2px; }
+.passive-row { display: flex; align-items: center; gap: 8px; padding: 5px 0; border-bottom: 1px solid var(--divider); font-size: 13px; }
+.note { font-size: 10px; color: var(--textFainter); line-height: 1.7; padding: 0 4px; }
+.db-row { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--divider); }
+.db-row .info { flex: 1; }
+.db-row .nm { font-size: 13px; font-weight: 700; }
+.db-row .src { font-size: 10px; color: var(--textFaint); }
+.db-row button { flex: none; padding: 6px 10px; font-size: 11px; }
+.msg { font-size: 12px; margin-top: 8px; color: var(--goldText); line-height: 1.6; }
+.steal-card { opacity: 1; }
+.steal-card.nodata { opacity: 0.55; }
+.steal-inner { background: var(--innerBg); border: 1px solid #d88a3a55; border-radius: 10px; padding: 10px 12px; }
+.steal-inner.unst { border-color: #d86a6a55; }
+.hidden { display: none; }
+</style>
+</head>
+<body>
+<div class="header">
+  <button id="themeBtn" title="ライト/ダーク切替">☀️</button>
+  <div class="eyebrow">✦ DQ WALK ✦</div>
+  <h1>武器継承シミュレーター</h1>
+  <div class="sub">★5武器 ｜ ぶき継承（6周年機能）対応</div>
+</div>
+
+<div class="wrap tabs">
+  <button class="btn" id="tab-steal">👑 奪取</button>
+  <button class="btn" id="tab-sim">⚔ 継承</button>
+  <button class="btn" id="tab-db">📚 DB管理</button>
+</div>
+
+<!-- ============ 奪取タブ ============ -->
+<div class="wrap hidden" id="pane-steal">
+  <div class="card" style="border-color:#d88a3a66">
+    <div class="label" style="color:#e0a04b">👑 そのチカラ我がもらった！！ 逆引き</div>
+    <div style="font-size:12px;color:var(--textSub);line-height:1.8">
+      魔王の剣は<b>右隣の味方</b>のいきなりスキル（武器詳細画面の<b>一番上</b>・ON設定のもの）を1つ奪い、延長可能な効果は1ターン延長します。
+    </div>
+    <div class="note" style="margin-top:6px">
+      ⛔ 奪取不可（2026/7時点）：ステラーウォール／宿王の極意／そのチカラ我がもらった！！<br>
+      ※ OFF設定のスキルは奪えない／こころのいきなりは対象外／魔王の剣が一番右の場合は一番左から奪う
+    </div>
+  </div>
+  <div class="card">
+    <div class="row" style="margin-bottom:0">
+      <input type="text" id="stealSearch" placeholder="武器名で検索">
+      <select id="stealType" style="flex:0 0 32%"></select>
+    </div>
+  </div>
+  <div id="stealList"></div>
+</div>
+
+<!-- ============ 継承タブ ============ -->
+<div class="wrap hidden" id="pane-sim">
+  <div class="card" style="border-color:#4a7fd866">
+    <div class="label" style="color:#7aa8f0">ベース武器（装備する武器）</div>
+    <div class="row">
+      <select id="filterType" style="flex:0 0 40%"></select>
+      <select id="baseSel"></select>
+    </div>
+    <div id="baseInfo"></div>
+  </div>
+  <div class="card" id="lbCard">
+    <div class="label">限界突破（凸）— 凸ごとに特殊効果が増えます</div>
+    <div class="row" id="lbBtns" style="margin-bottom:0"></div>
+  </div>
+  <div class="card" style="border-color:#5fbf8f66">
+    <div class="label" style="color:#7fd0a8">継承ぶき（同じ武器種のみセット可）</div>
+    <select id="inhSel"></select>
+    <div id="inhNote" class="note" style="margin-top:8px"></div>
+    <div id="rendoBox" class="hidden" style="margin-top:10px">
+      <div style="font-size:11px;font-weight:700;color:#e0a04b;margin-bottom:6px">ぶき熟練度（練度）</div>
+      <div class="row" id="rendoBtns" style="margin-bottom:0"></div>
+      <div class="note" style="margin-top:6px">練度1：メインスキル継承 ／ 練度4：特殊効果追加 ／ 練度10：継承元の限界突破1段階目効果を追加</div>
+    </div>
+  </div>
+  <div id="resultBox"></div>
+  <div class="note">※ 仕様メモ：継承は同一武器種のみ。いきなり・挑戦スキルは継承不可。二刀流と併用不可。ステータス（攻撃力等）は加算されない。使用回数制限スキルは回数合算されない。</div>
+</div>
+
+<!-- ============ DB管理タブ ============ -->
+<div class="wrap hidden" id="pane-db">
+  <div class="card">
+    <div class="label" id="dbCountLabel">登録武器一覧</div>
+    <div id="dbList"></div>
+  </div>
+  <div class="card" style="border-color:#7aa8f066">
+    <div class="label">📦 一括取得プロンプト（未検証⚠️をまとめて埋める）</div>
+    <div class="row"><select id="batchType"></select></div>
+    <button class="btn active full" id="batchBtn">一括プロンプトを生成</button>
+    <div class="note" style="margin-top:6px">生成されたプロンプトが下の欄に表示されます（コピーも試みます）。返ってきたJSON配列をそのまま下の欄に貼り替えて「取り込む」。おすすめは武器種単位。</div>
+  </div>
+  <div class="card" style="border-color:#c9a24b66">
+    <div class="label">➕ ゼロから武器を追加（DBに無い武器はここから）</div>
+    <div class="row">
+      <input type="text" id="newName" placeholder="武器名を入力（例：ルビスの剣）">
+      <select id="newType" style="flex:0 0 32%"></select>
+    </div>
+    <button class="btn active full" id="newBtn">取得プロンプトを生成</button>
+  </div>
+  <div class="card">
+    <div class="label">プロンプト／JSONインポート欄（新規追加・上書き更新）</div>
+    <textarea id="ioArea" placeholder="ここに生成プロンプトが出ます／JSONを貼って「取り込む」"></textarea>
+    <div class="row" style="margin-top:8px">
+      <button class="btn active" id="importBtn">取り込む</button>
+      <button class="btn" id="copyBtn">欄の内容をコピー</button>
+    </div>
+    <div class="row">
+      <button class="btn" id="exportBtn">全データ書き出し</button>
+      <button class="btn danger" id="resetBtn">初期化</button>
+    </div>
+    <div class="msg" id="ioMsg"></div>
+  </div>
+</div>
+
+<script>
+
+/* ============ DQW継承シミュ ロジック部（純粋関数・DOM非依存） ============ */
+
+const WEAPON_TYPES = ['片手剣', '両手剣', '短剣', '杖', '棍', 'ヤリ', 'オノ', 'ツメ', 'ムチ', 'ブーメラン', 'EX'];
+const UNSTEALABLE = ['ステラーウォール', '宿王の極意', 'そのチカラ我がもらった！！'];
+
+const STUB_LIST = [
+  ['神喰らいの大剣', '両手剣', null],
+  ['メタルキングの大剣', '両手剣', 13223],
+  ['エスタークの魔刃', '両手剣', 14033],
+  ['はかいのつるぎ', '両手剣', 4574],
+  ['大太刀・立葵', '両手剣', null],
+  ['獄炎の大剣', '両手剣', null],
+  ['ロトのつるぎ', '片手剣', 601],
+  ['天空のつるぎ', '片手剣', 1272],
+  ['ガイアのつるぎ', '片手剣', null],
+  ['真魔剛竜剣', '片手剣', null],
+  ['グランゼドーラの剣', '片手剣', 7206],
+  ['メタルキングの剣', '片手剣', 7566],
+  ['ルビスの剣', '片手剣', null],
+  ['王者の剣', '片手剣', null],
+  ['ぎんがのつるぎ', '片手剣', 10170],
+  ['クロノスソード', '片手剣', null],
+  ['オチェアーノの剣', '片手剣', null],
+  ['ラミアスのつるぎ', '片手剣', 9440],
+  ['ゾンビキラー', '片手剣', 12398],
+  ['魔力の宝剣', '片手剣', 10959],
+  ['とこしえの杖', '杖', 18410],
+  ['ドラゴンのつえ', '杖', 5057],
+  ['パラドクスの杖', '杖', 17540],
+  ['ラプラスの杖', '杖', 14371],
+  ['世界樹の天杖【刻】', '杖', 11865],
+  ['セイクリッドスタッフ', '杖', 14513],
+  ['いかずちのつえ', '杖', 4529],
+  ['闇の覇者の魔杖', '杖', 6768],
+  ['あまぐもの杖', '杖', null],
+  ['ウロボロスのつえ', '杖', 8339],
+  ['小悪魔セティアのロッド', '杖', 11489],
+  ['インフェルノワンド', '杖', null],
+  ['聖風のつえ', '杖', null],
+  ['水竜の短剣', '短剣', 14251],
+  ['げっかびじん', '短剣', 9105],
+  ['忍刀・雪月花', '短剣', 17387],
+  ['オリハルコンの短剣', '短剣', null],
+  ['ミリオンダガー', '短剣', null],
+  ['忍刀・朧', '短剣', null],
+  ['白き英雄の旗槍', 'ヤリ', null],
+  ['ルビスのやり', 'ヤリ', null],
+  ['鎧の魔槍', 'ヤリ', null],
+  ['マスタードラゴンのやり', 'ヤリ', null],
+  ['神鳥の翼斧', 'オノ', 15584],
+  ['ルビスの月斧', 'オノ', 16846],
+  ['まじんのオノ', 'オノ', 12438],
+  ['ヘパイトスの烈鎚', 'オノ', 17310],
+  ['グレートアックス', 'オノ', null],
+  ['はかいのてっきゅう', 'オノ', 11075],
+  ['グリザードの鋭牙', 'ツメ', 13628],
+  ['幻魔王のツメ', 'ツメ', 9734],
+  ['閃光烈火のツメ', 'ツメ', null],
+  ['ドラゴンクロー', 'ツメ', null],
+  ['黒嵐のツメ', 'ツメ', null],
+  ['武神の剛拳', 'ツメ', null],
+  ['ラーミアのムチ', 'ムチ', 12461],
+  ['ルイーダウィップ', 'ムチ', 13054],
+  ['グリンガムのムチ', 'ムチ', null],
+  ['絶美なる妖鞭', 'ムチ', null],
+  ['ナイトメアチェーン', 'ムチ', null],
+  ['はてんの月輪', 'ブーメラン', 18350],
+  ['ケキちゃん', 'ブーメラン', 15208],
+  ['妖精の円月輪', 'ブーメラン', 10026],
+  ['ドラゴンブーメラン', 'ブーメラン', null],
+  ['さばきのこん', '棍', null],
+  ['やしゃのこん', '棍', null],
+  ['如意棒', '棍', null],
+  ['宿王の看板', 'EX', 18160],
+  ['やみのころもの黒炎', 'EX', 12565],
+  ['ダーマの神杖', 'EX', 17860],
+  ['しんぴの水晶', 'EX', 11577],
+  ['竜神王の杖', 'EX', null],
+  ['ピッコロ大魔王の玉座', 'EX', 14985],
+  ['ホイポイカプセル', 'EX', 14910],
+  ['蜃気楼', 'EX', 12915],
+  ['天使の断頭台', 'EX', 11227],
+  ['肉球印の大しゃもじ', 'EX', 16585],
+];
+
+function makeStub(row) {
+  const name = row[0], type = row[1], dbId = row[2];
+  return {
+    id: 'w_' + name.replace(/[^ぁ-んァ-ヶ一-龠a-zA-Z0-9]/g, ''),
+    name: name, type: type, rarity: 5, attribute: '要取得',
+    attack0: null, attack4: null,
+    skills: [{ name: '（要データ取得）', mp: '?', desc: '「DB管理」→取得用プロンプトで埋めてください', inheritable: true }],
+    ikinari: [], chosen: [], passives: [], limitBreakEffects: [],
+    inherit: { r1: [], r4: [], r10: [] },
+    source: dbId ? ('9db.jp/dqwalk/data/' + dbId) : ('9db.jpで「' + name + '」を検索'),
+    verified: false,
+  };
+}
+
+const MAOU = {
+  id: 'maou_no_ken', name: '魔王の剣', type: '両手剣', rarity: 5,
+  attribute: '無/ヒャド/ドルマ', attack0: 187, attack4: 244,
+  skills: [
+    { name: 'アルテマソード', mp: '66', desc: '敵1体に威力3000%の斬撃ダメージを与え ごくまれに直撃する', inheritable: true },
+    { name: 'ダークブレイク', mp: '59', desc: '敵全体に威力550%のヒャドかドルマ属性斬撃ダメージ まれに恐怖Lv1・衰弱を付与', inheritable: false },
+    { name: 'クリムゾンミスト', mp: '最大MP10%', desc: '領域展開：敵の行動開始時に守備力・ブレス耐性・呪文耐性のいずれかを下げる（戦闘中3回）', inheritable: false },
+    { name: '青の衝撃', mp: '最大MP43%', desc: '敵全体の強化効果を一部を除き全て解除し再度行動する（戦闘中1回）', inheritable: false },
+  ],
+  ikinari: [
+    { name: 'そのチカラ我がもらった！！', desc: '右隣の味方のいきなりスキルを1つ奪い自身のものとして発動、延長可能な効果は1ターン延長' },
+    { name: 'とてつもなく邪悪な気', desc: '戦闘開始時に自身の会心ダメージを上げる（+40%乗算）' },
+  ],
+  chosen: [
+    { name: '永遠の闇へと堕ちるがいい', desc: '会心3回発生でいきなりスキルを再発動' },
+    { name: '我は魔王なり！', desc: '2行動連続で会心発生→再度行動' },
+    { name: '万物の頂点', desc: '会心発生時まれにゾーン状態' },
+  ],
+  passives: ['虫系へのダメージ+5%', '？？？？系へのダメージ+5%', '会心率+3%【両】', 'スキルの斬撃ダメージ+3%【両】'],
+  limitBreakEffects: ['スキルの斬撃・体技ダメージ+7%', 'スキルの斬撃・体技ダメージ+7%', 'スキルの斬撃・体技ダメージ+7%', 'スキルの斬撃・体技ダメージ+7%'],
+  inherit: {
+    r1: [{ kind: 'skill', name: 'アルテマソード', mp: '66', desc: '敵1体に威力3000%の斬撃ダメージを与え ごくまれに直撃する' }],
+    r4: [{ kind: 'passive', name: '？？？？系へのダメージ+5%' }],
+    r10: [{ kind: 'passive', name: 'スキルの斬撃・体技ダメージ+7%' }],
+  },
+  source: '9db.jp/dqwalk/data/19732', verified: true,
+};
+
+const YUSHA = {
+  id: 'yusha_no_tsurugi', name: '勇者のつるぎ', type: '片手剣', rarity: 5,
+  attribute: '無/デイン/全属性(レインボーフォース)', attack0: 188, attack4: 245,
+  skills: [
+    { name: 'ギガクラッシュ', mp: '?', desc: 'メインスキル（DQ11・40周年記念武器）※威力詳細は9db個別ページ参照', inheritable: true },
+    { name: '全身全霊斬り', mp: '?', desc: '敵単体に必中・確定直撃の無属性1100%斬撃ダメージ', inheritable: false },
+    { name: '勇者の軌跡', mp: '?', desc: '自身に敵ごとに有効な属性を付加する「レインボーフォース」を付与し再行動（戦闘中1回）', inheritable: false },
+    { name: '領域「ブレイブゾーン」', mp: '?', desc: '敵の斬撃・体技・呪文・ブレス耐性を20%低下、味方が確率でゾーン状態になる', inheritable: false },
+    { name: 'れんけい「ギガバースト」', mp: '?', desc: 'ゾーン2人以上で発動可。全体デイン属性斬撃800%（メタル特攻+120）＋崩壊（HP30%以下の敵を消し去る）。必中・確定直撃', inheritable: false },
+  ],
+  ikinari: [{ name: 'いきなり会心必中のかまえ', desc: '最初の行動のみ斬撃・体技ダメージが上がり、必中かつ会心の一撃になる' }],
+  chosen: [{ name: '命の大樹に選ばれし者', desc: '自身が直撃を3回発生させると領域「ブレイブゾーン」を再展開' }],
+  passives: [], limitBreakEffects: [],
+  inherit: {
+    r1: [{ kind: 'skill', name: 'ギガクラッシュ', mp: '?', desc: '（練度1でメインスキル継承。倍率・MPは取得用プロンプトで確認を）' }],
+    r4: [], r10: [],
+  },
+  source: '9db.jp/dqwalk/data/18200', verified: false,
+};
+
+function seedWeapons() {
+  return [MAOU, YUSHA].concat(STUB_LIST.map(makeStub));
+}
+
+/* ---- 継承合成 ---- */
+function simulate(base, inh, rendo, lb) {
+  if (!base) return null;
+  const skills = base.skills.map(function(s){ return Object.assign({}, s, {from:'base'}); });
+  const passives = base.passives.map(function(p){ return {text:p, from:'base'}; })
+    .concat((base.limitBreakEffects||[]).slice(0, lb).map(function(p){ return {text:p, from:'lb'}; }));
+  const inheritedSkills = [], inheritedPassives = [];
+  if (inh) {
+    [['r1',1],['r4',4],['r10',10]].forEach(function(pair){
+      const key = pair[0], need = pair[1];
+      if (rendo >= need) (inh.inherit[key]||[]).forEach(function(e){
+        if (e.kind === 'skill') inheritedSkills.push(Object.assign({}, e, {from:'inherit'}));
+        else inheritedPassives.push({text: e.name, from: 'inherit-' + key});
+      });
+    });
+  }
+  let atk = null;
+  if (base.attack0 != null && base.attack4 != null) {
+    atk = lb === 0 ? base.attack0 : lb === 4 ? base.attack4 : Math.round(base.attack0 + (base.attack4 - base.attack0) * (lb / 4));
+  }
+  return { skills: skills, inheritedSkills: inheritedSkills, passives: passives, inheritedPassives: inheritedPassives, atk: atk };
+}
+
+/* ---- 奪取逆引き ---- */
+function stealTargets(weapons, search, typeFilter) {
+  return weapons
+    .filter(function(w){ return w.id !== 'maou_no_ken'; })
+    .filter(function(w){ return typeFilter === 'すべて' || w.type === typeFilter; })
+    .filter(function(w){ return !search || w.name.indexOf(search) !== -1; })
+    .map(function(w){
+      const top = (w.ikinari && w.ikinari.length > 0) ? w.ikinari[0] : null;
+      const unstealable = top ? UNSTEALABLE.indexOf(top.name) !== -1 : false;
+      return { weapon: w, top: top, unstealable: unstealable };
+    })
+    .sort(function(a,b){
+      const score = function(x){ return x.top ? (x.unstealable ? 1 : 0) : 2; };
+      return score(a) - score(b);
+    });
+}
+
+/* ---- JSONスキーマ雛形（プロンプト用） ---- */
+const JSON_SCHEMA_BLOCK = [
+  '{',
+  '  "id": "（指定のid）",',
+  '  "name": "武器名",',
+  '  "type": "武器種",',
+  '  "rarity": 5,',
+  '  "attribute": "属性",',
+  '  "attack0": 0凸攻撃力,',
+  '  "attack4": 4凸攻撃力,',
+  '  "skills": [{"name": "スキル名", "mp": "消費MP", "desc": "効果", "inheritable": true/false, "cond": "錬成改Nで追加/強化（該当時のみ）"}],',
+  '  "ikinari": [{"name": "名称", "desc": "効果", "cond": "錬成改Nで追加（該当時のみ）"}],',
+  '  "chosen": [{"name": "名称", "desc": "効果"}],',
+  '  "passives": ["特殊効果テキスト"],',
+  '  "limitBreakEffects": ["1凸効果", "2凸効果", "3凸効果", "4凸効果"],',
+  '  "inherit": {',
+  '    "r1": [{"kind": "skill", "name": "スキル名", "mp": "消費MP", "desc": "効果"}],',
+  '    "r4": [{"kind": "passive", "name": "特殊効果テキスト"}],',
+  '    "r10": [{"kind": "passive", "name": "特殊効果テキスト"}]',
+  '  },',
+  '  "source": "参照した実URL",',
+  '  "verified": true',
+  '}'
+].join('\n');
+
+const COMMON_RULES = [
+  '【重要ルール】',
+  '- 各武器の「継承スキル詳細」表（練度1/練度4/練度10）は必ず9db.jpの個別武器ページから逐語転記すること',
+  '- 武器種（type）はページの「種類」欄を正とすること',
+  '- 武器錬成（改）で追加・強化されるいきなりスキル/スキルは必ず含め、"cond"に条件（例："錬成改3で追加"）を記載すること',
+  '- いきなりスキルは武器詳細画面の表示順（上から順）で配列に格納すること（順序が奪取仕様に影響）',
+  '- 不明な項目は推測せず null または空配列にすること',
+].join('\n');
+
+function buildSinglePrompt(w) {
+  return '9db.jp（みんドラ）の武器ページ ' + w.source + ' を参照して、以下のJSON形式で「' + w.name + '」（武器種：' + w.type + '）のデータを作成してください。\n\n'
+    + COMMON_RULES + '\n- idは "' + w.id + '" をそのまま使うこと\n\n'
+    + JSON_SCHEMA_BLOCK + '\n\nJSONのみを出力してください（説明文・コードブロック記号は不要）。';
+}
+
+function buildNewPrompt(name, type, genId) {
+  return 'ドラクエウォークの★5武器「' + name + '」（武器種：' + type + '）のデータを、9db.jpで検索して個別武器ページを見つけ、以下のJSON形式で作成してください。ページが見つからない場合はGame8やGameWithで補完し、sourceに実際に参照したURLを記載してください。\n\n'
+    + COMMON_RULES + '\n- idは "' + genId + '" をそのまま使うこと\n\n'
+    + JSON_SCHEMA_BLOCK + '\n\nJSONのみを出力してください（説明文・コードブロック記号は不要）。';
+}
+
+function buildBatchPrompt(weapons, typeFilter) {
+  const targets = weapons.filter(function(w){ return !w.verified && (typeFilter === 'すべて' || w.type === typeFilter); });
+  if (targets.length === 0) return null;
+  const list = targets.map(function(w){ return '- ' + w.name + '（' + w.type + '）id:"' + w.id + '" 参照:' + w.source; }).join('\n');
+  return {
+    count: targets.length,
+    text: 'ドラクエウォークの★5武器 ' + targets.length + '本のデータを、9db.jp（みんドラ）の各個別武器ページをweb検索・参照して、JSON配列として作成してください。\n\n【対象武器】\n' + list + '\n\n'
+      + COMMON_RULES + '\n- idは上記リストの値をそのまま使うこと\n\n【1武器あたりのJSON形式】\n' + JSON_SCHEMA_BLOCK
+      + '\n\n全武器分を1つのJSON配列 [ {...}, {...} ] として、JSONのみ出力してください（説明文・コードブロック記号は不要）。'
+  };
+}
+
+/* ---- インポート ---- */
+function importWeapons(jsonText, current) {
+  let parsed;
+  try { parsed = JSON.parse(jsonText); }
+  catch (e) {
+    // コードブロック記号付きで貼られた場合の救済
+    const stripped = jsonText.replace(/```json|```/g, '').trim();
+    try { parsed = JSON.parse(stripped); }
+    catch (e2) { return { ok: false, msg: 'JSONの解析に失敗：' + e2.message }; }
+  }
+  const arr = Array.isArray(parsed) ? parsed : [parsed];
+  for (let i = 0; i < arr.length; i++) {
+    const w = arr[i];
+    if (!w.id || !w.name || !w.type || !w.inherit) {
+      return { ok: false, msg: (i+1) + '件目の武器で id / name / type / inherit のいずれかが欠けています' };
+    }
+  }
+  const map = new Map(current.map(function(w){ return [w.id, w]; }));
+  arr.forEach(function(w){
+    map.set(w.id, Object.assign({ verified: false, skills: [], ikinari: [], chosen: [], passives: [], limitBreakEffects: [], rarity: 5 }, w));
+  });
+  return { ok: true, msg: arr.length + '件の武器を取り込みました（同IDは上書き）', weapons: Array.from(map.values()) };
+}
+
+
+
+
+/* ============ アプリ状態 ============ */
+const LS_KEY = 'dqw-keisho-db-v3';
+const LS_THEME = 'dqw-keisho-theme';
+let weapons, state = { tab: 'steal', baseId: 'maou_no_ken', inhId: '', rendo: 10, lb: 0, filterType: 'すべて' };
+
+function lsGet(k) { try { return localStorage.getItem(k); } catch(e) { return null; } }
+function lsSet(k, v) { try { localStorage.setItem(k, v); } catch(e) {} }
+
+function loadWeapons() {
+  const raw = lsGet(LS_KEY);
+  if (raw) { try { const p = JSON.parse(raw); if (Array.isArray(p) && p.length) return p; } catch(e) {} }
+  return seedWeapons();
+}
+function persist() { lsSet(LS_KEY, JSON.stringify(weapons)); }
+
+const $ = function(id) { return document.getElementById(id); };
+function esc(s) { return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function chip(color, text) { return '<span class="chip" style="background:'+color+'22;border:1px solid '+color+'88;color:'+color+'">'+esc(text)+'</span>'; }
+
+/* ============ テーマ ============ */
+function applyTheme(theme) {
+  document.body.classList.toggle('light', theme === 'light');
+  $('themeBtn').textContent = theme === 'light' ? '🌙' : '☀️';
+  lsSet(LS_THEME, theme);
+}
+$('themeBtn').addEventListener('click', function() {
+  applyTheme(document.body.classList.contains('light') ? 'dark' : 'light');
+});
+
+/* ============ タブ ============ */
+function showTab(tab) {
+  state.tab = tab;
+  ['steal','sim','db'].forEach(function(x) {
+    $('pane-' + x).classList.toggle('hidden', x !== tab);
+    $('tab-' + x).classList.toggle('active', x === tab);
+  });
+  if (tab === 'steal') renderSteal();
+  if (tab === 'sim') renderSim();
+  if (tab === 'db') renderDB();
+}
+$('tab-steal').addEventListener('click', function(){ showTab('steal'); });
+$('tab-sim').addEventListener('click', function(){ showTab('sim'); });
+$('tab-db').addEventListener('click', function(){ showTab('db'); });
+
+/* ============ 奪取タブ ============ */
+function fillTypeSelect(sel, withAll) {
+  let html = withAll ? '<option value="すべて">全種</option>' : '';
+  WEAPON_TYPES.forEach(function(t){ html += '<option value="'+t+'">'+t+'</option>'; });
+  sel.innerHTML = html;
+}
+function renderSteal() {
+  const list = stealTargets(weapons, $('stealSearch').value.trim(), $('stealType').value || 'すべて');
+  let html = '';
+  list.forEach(function(item) {
+    const w = item.weapon, top = item.top, unst = item.unstealable;
+    html += '<div class="card steal-card' + (top ? '' : ' nodata') + '" style="margin-bottom:10px;border-color:' + (top ? (unst ? '#d86a6a66' : '#d88a3a66') : 'var(--cardBorder)') + '">';
+    html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:' + (top ? '8px' : '0') + '">';
+    html += '<span style="font-size:13px;font-weight:700;flex:1">' + esc(w.name) + '</span>';
+    html += chip('#7aa8f0', w.type);
+    if (!w.verified) html += chip('#e0632f', '⚠️');
+    html += '</div>';
+    if (top) {
+      html += '<div class="steal-inner' + (unst ? ' unst' : '') + '">';
+      html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap">';
+      html += '<span style="font-size:10px;font-weight:700;color:' + (unst ? '#d86a6a' : '#e0a04b') + '">' + (unst ? '⛔ 奪取不可' : '✋ 奪取対象（一番上のいきなり）') + '</span>';
+      html += '<span style="font-size:13px;font-weight:700;color:' + (unst ? '#d89a9a' : 'var(--skillName)') + '">' + esc(top.name) + '</span>';
+      if (top.cond) html += chip('#9a6fd0', top.cond);
+      html += '</div>';
+      html += '<div style="font-size:11.5px;color:var(--skillDesc);line-height:1.6">' + esc(top.desc) + '</div>';
+      if (w.ikinari.length > 1) {
+        const others = w.ikinari.slice(1).map(function(s){ return s.name + (s.cond ? '〔' + s.cond + '〕' : ''); }).join('／');
+        html += '<div class="note" style="margin-top:6px">他のいきなり：' + esc(others) + '（奪えるのは一番上のみ。奪いたいスキルが下にある場合は上をOFFに）</div>';
+      }
+      html += '</div>';
+    } else {
+      html += '<div style="font-size:11px;color:var(--textFaint)">いきなりスキルのデータ未登録（DB管理の取得用プロンプトで埋めると表示されます）</div>';
+    }
+    html += '</div>';
+  });
+  $('stealList').innerHTML = html || '<div class="note">該当する武器がありません</div>';
+}
+$('stealSearch').addEventListener('input', renderSteal);
+$('stealType').addEventListener('change', renderSteal);
+
+/* ============ 継承タブ ============ */
+function renderSim() {
+  // フィルタ＆ベース選択肢（継承ぶきに選ばれた武器は除外＝相互排他）
+  const filtered = weapons.filter(function(w){ return (state.filterType === 'すべて' || w.type === state.filterType) && w.id !== state.inhId; });
+  if (state.baseId && !filtered.some(function(w){ return w.id === state.baseId; })) { state.baseId = ''; state.inhId = ''; }
+  let html = '<option value="">選択してください</option>';
+  filtered.forEach(function(w){
+    html += '<option value="' + w.id + '"' + (w.id === state.baseId ? ' selected' : '') + '>' + (w.verified ? '✅' : '⚠️') + ' ' + esc(w.name) + '（' + w.type + '）</option>';
+  });
+  $('baseSel').innerHTML = html;
+
+  const base = weapons.find(function(w){ return w.id === state.baseId; });
+
+  // ベース情報チップ
+  let info = '';
+  if (base) {
+    info += chip('#7aa8f0', base.type) + chip('#e0a04b', base.attribute);
+    if (base.attack0 != null) info += chip('#d86a6a', '攻 ' + base.attack0 + '〜' + base.attack4);
+    if (!base.verified) info += chip('#e0632f', '⚠️ データ未検証');
+  }
+  $('baseInfo').innerHTML = info ? '<div style="margin-top:8px">' + info + '</div>' : '';
+
+  // 凸ボタン
+  let lbHtml = '';
+  [0,1,2,3,4].forEach(function(v){
+    lbHtml += '<button class="btn' + (state.lb === v ? ' active' : '') + '" data-lb="' + v + '">' + v + '凸</button>';
+  });
+  $('lbBtns').innerHTML = lbHtml;
+  Array.prototype.forEach.call($('lbBtns').children, function(b){
+    b.addEventListener('click', function(){ state.lb = Number(b.dataset.lb); renderSim(); });
+  });
+
+  // 継承ぶき選択肢（同一武器種のみ・ベース除外）
+  const cands = base ? weapons.filter(function(w){ return w.type === base.type && w.id !== base.id; }) : [];
+  let inhHtml = '<option value="">（継承なし）</option>';
+  cands.forEach(function(w){
+    inhHtml += '<option value="' + w.id + '"' + (w.id === state.inhId ? ' selected' : '') + '>' + (w.verified ? '✅' : '⚠️') + ' ' + esc(w.name) + '</option>';
+  });
+  $('inhSel').innerHTML = inhHtml;
+  $('inhSel').disabled = !base;
+  $('inhNote').textContent = !base ? '先にベース武器を選択してください' : (cands.length === 0 ? '同じ武器種（' + base.type + '）の他武器がDBにありません' : '');
+
+  const inh = weapons.find(function(w){ return w.id === state.inhId; });
+  $('rendoBox').classList.toggle('hidden', !inh);
+  if (inh) {
+    let rHtml = '';
+    [1,4,10].forEach(function(r){
+      rHtml += '<button class="btn' + (state.rendo === r ? ' active' : '') + '" data-r="' + r + '">練度' + r + '</button>';
+    });
+    $('rendoBtns').innerHTML = rHtml;
+    Array.prototype.forEach.call($('rendoBtns').children, function(b){
+      b.addEventListener('click', function(){ state.rendo = Number(b.dataset.r); renderSim(); });
+    });
+  }
+
+  // 結果
+  const res = simulate(base, inh, state.rendo, state.lb);
+  if (!res || !base) { $('resultBox').innerHTML = '<div class="card" style="text-align:center;color:var(--textFaint);border-style:dashed">武器を選択してください</div>'; return; }
+
+  let r = '<div class="card" style="border-color:#c9a24b55">';
+  r += '<div style="border-bottom:1px solid var(--divider);padding-bottom:10px;margin-bottom:4px">';
+  r += '<div style="font-size:11px;letter-spacing:2px;color:var(--gold)">― 合成結果 ―</div>';
+  r += '<div style="font-size:16px;font-weight:700;color:var(--title);margin-top:4px">' + esc(base.name) + ' <span style="font-size:11px;color:var(--textFaint)">' + state.lb + '凸</span>';
+  if (inh) r += ' <span style="color:#5fbf8f">＋ ' + esc(inh.name) + ' <span style="font-size:11px;color:var(--textFaint)">練度' + state.rendo + '</span></span>';
+  r += '</div>';
+  if (res.atk != null) r += '<div style="margin-top:6px">' + chip('#d86a6a', '攻撃力 ' + res.atk + (state.lb !== 0 && state.lb !== 4 ? '（補間値）' : '')) + '</div>';
+  r += '</div>';
+
+  r += '<div class="section-title">使用可能なスキル</div>';
+  res.skills.concat(res.inheritedSkills).forEach(function(s){
+    const inherited = s.from === 'inherit';
+    r += '<div class="skill-card' + (inherited ? ' inherited' : '') + '">';
+    r += '<div style="display:flex;justify-content:space-between;gap:8px"><span class="name">' + (inherited ? '【継承】' : '') + esc(s.name) + (s.cond ? '〔' + esc(s.cond) + '〕' : '') + '</span><span class="mp">MP ' + esc(s.mp) + '</span></div>';
+    r += '<div class="desc">' + esc(s.desc) + '</div></div>';
+  });
+
+  if (base.ikinari.length || base.chosen.length) {
+    r += '<div class="section-title">いきなり・挑戦スキル（ベース武器のみ／継承不可）</div>';
+    base.ikinari.forEach(function(s){
+      r += '<div class="mini-line"><span class="tag" style="color:#d88a3a">【いきなり】</span><span class="name">' + esc(s.name) + (s.cond ? '〔' + esc(s.cond) + '〕' : '') + '</span><div class="desc">' + esc(s.desc) + '</div></div>';
+    });
+    base.chosen.forEach(function(s){
+      r += '<div class="mini-line"><span class="tag" style="color:#9a6fd0">【挑戦】</span><span class="name">' + esc(s.name) + '</span><div class="desc">' + esc(s.desc) + '</div></div>';
+    });
+  }
+
+  r += '<div class="section-title">特殊効果</div>';
+  const allP = res.passives.concat(res.inheritedPassives);
+  if (allP.length === 0) r += '<div class="note">特殊効果データがありません</div>';
+  allP.forEach(function(p){
+    let tag, color;
+    if (p.from === 'base') { tag = 'ベース'; color = '#7aa8f0'; }
+    else if (p.from === 'lb') { tag = '凸'; color = '#d86a6a'; }
+    else { tag = '継承 練度' + p.from.replace('inherit-r',''); color = '#5fbf8f'; }
+    r += '<div class="passive-row">' + chip(color, tag) + '<span>' + esc(p.text) + '</span></div>';
+  });
+
+  r += '<div class="note" style="text-align:right;margin-top:8px">出典: ' + esc(base.source) + (inh ? ' ／ ' + esc(inh.source) : '') + '</div>';
+  r += '</div>';
+  $('resultBox').innerHTML = r;
+}
+$('filterType').addEventListener('change', function(){ state.filterType = this.value; renderSim(); });
+$('baseSel').addEventListener('change', function(){ state.baseId = this.value; state.inhId = ''; renderSim(); });
+$('inhSel').addEventListener('change', function(){ state.inhId = this.value; renderSim(); });
+
+/* ============ DB管理タブ ============ */
+function renderDB() {
+  const vn = weapons.filter(function(w){ return w.verified; }).length;
+  $('dbCountLabel').textContent = '登録武器一覧（' + weapons.length + '件 ／ ✅検証済 ' + vn + '件）';
+  let html = '';
+  weapons.forEach(function(w){
+    html += '<div class="db-row"><span style="font-size:14px">' + (w.verified ? '✅' : '⚠️') + '</span>';
+    html += '<div class="info"><div class="nm">' + esc(w.name) + '</div><div class="src">' + esc(w.type) + ' ／ ' + esc(w.source) + '</div></div>';
+    if (!w.verified) html += '<button class="btn" data-wid="' + w.id + '">取得用プロンプト</button>';
+    html += '</div>';
+  });
+  $('dbList').innerHTML = html;
+  Array.prototype.forEach.call($('dbList').querySelectorAll('button[data-wid]'), function(b){
+    b.addEventListener('click', function(){
+      const w = weapons.find(function(x){ return x.id === b.dataset.wid; });
+      outputToIO(buildSinglePrompt(w), '「' + w.name + '」の取得プロンプトを生成しました');
+    });
+  });
+
+  // 一括セレクト
+  let bHtml = '<option value="すべて">すべての武器種（' + weapons.filter(function(w){return !w.verified;}).length + '本）</option>';
+  WEAPON_TYPES.forEach(function(t){
+    const n = weapons.filter(function(w){ return !w.verified && w.type === t; }).length;
+    if (n > 0) bHtml += '<option value="' + t + '">' + t + 'のみ（' + n + '本）</option>';
+  });
+  $('batchType').innerHTML = bHtml;
+}
+
+function outputToIO(text, successMsg) {
+  $('ioArea').value = text;
+  $('ioArea').scrollIntoView({ behavior: 'smooth', block: 'center' });
+  let msg = '✅ ' + successMsg + '（下の欄に表示中）';
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text)
+      .then(function(){ $('ioMsg').textContent = msg + ' ※クリップボードにもコピー済み'; })
+      .catch(function(){ $('ioMsg').textContent = msg + ' ※コピー権限なし→欄を長押し全選択でコピーしてください'; });
+  } else {
+    $('ioMsg').textContent = msg + ' ※欄を長押し全選択でコピーしてください';
+  }
+  $('ioMsg').textContent = msg;
+}
+
+$('batchBtn').addEventListener('click', function(){
+  const bp = buildBatchPrompt(weapons, $('batchType').value);
+  if (!bp) { $('ioMsg').textContent = '✅ 対象の未検証武器がありません'; return; }
+  outputToIO(bp.text, '未検証' + bp.count + '本の一括取得プロンプトを生成しました');
+});
+
+$('newBtn').addEventListener('click', function(){
+  const name = $('newName').value.trim();
+  if (!name) { $('ioMsg').textContent = '❌ 武器名を入力してください'; return; }
+  const genId = 'w_' + Date.now().toString(36);
+  outputToIO(buildNewPrompt(name, $('newType').value, genId), '「' + name + '」の取得プロンプトを生成しました');
+  $('newName').value = '';
+});
+
+$('importBtn').addEventListener('click', function(){
+  const result = importWeapons($('ioArea').value, weapons);
+  if (result.ok) {
+    weapons = result.weapons; persist();
+    $('ioArea').value = '';
+    $('ioMsg').textContent = '✅ ' + result.msg;
+    renderDB();
+  } else {
+    $('ioMsg').textContent = '❌ ' + result.msg;
+  }
+});
+
+$('copyBtn').addEventListener('click', function(){
+  const ta = $('ioArea');
+  ta.focus(); ta.select(); ta.setSelectionRange(0, ta.value.length);
+  let copied = false;
+  try { copied = document.execCommand('copy'); } catch(e) {}
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(ta.value)
+      .then(function(){ $('ioMsg').textContent = '✅ コピーしました'; })
+      .catch(function(){ $('ioMsg').textContent = copied ? '✅ コピーしました' : '❌ コピー不可。長押し全選択で手動コピーしてください（全選択済み）'; });
+  } else {
+    $('ioMsg').textContent = copied ? '✅ コピーしました' : '❌ 手動コピーしてください（全選択済み）';
+  }
+});
+
+$('exportBtn').addEventListener('click', function(){
+  outputToIO(JSON.stringify(weapons, null, 2), '全データ（' + weapons.length + '件）を書き出しました');
+});
+
+$('resetBtn').addEventListener('click', function(){
+  if (confirm('DBをシードデータに初期化します。追加した武器は消えます。よろしいですか？')) {
+    weapons = seedWeapons(); persist(); renderDB();
+    $('ioMsg').textContent = 'DBを初期化しました';
+  }
+});
+
+/* ============ 起動 ============ */
+weapons = loadWeapons();
+applyTheme(lsGet(LS_THEME) || 'dark');
+fillTypeSelect($('stealType'), true);
+(function(){
+  let fHtml = '<option value="すべて">全種</option>';
+  WEAPON_TYPES.forEach(function(t){ fHtml += '<option value="' + t + '">' + t + '</option>'; });
+  $('filterType').innerHTML = fHtml;
+})();
+fillTypeSelect($('newType'), false);
+showTab('steal');
+</script>
+</body>
+</html>
