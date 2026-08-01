@@ -1,4 +1,5 @@
-<!-- index.html v1.2.0 -->
+```html
+<!-- index.html v1.2.4 -->
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -180,24 +181,18 @@ textarea { min-height: 120px; font-family: ui-monospace, monospace; font-size: 1
     </div>
     <div class="row">
       <button class="btn" id="exportBtn">JSONファイルで保存</button>
-      <button class="btn danger" id="resetBtn">初期化</button>
     </div>
     <div class="msg" id="ioMsg"></div>
   </div>
 </div>
 
 <script>
-
 /* ============ DQW継承シミュ ロジック部（純粋関数・DOM非依存） ============ */
 
 const WEAPON_TYPES = ['片手剣', '両手剣', '短剣', '杖', '棍', 'ヤリ', 'オノ', 'ツメ', 'ムチ', 'ブーメラン', 'EX'];
 const UNSTEALABLE = ['ステラーウォール', '宿王の極意', 'そのチカラ我がもらった！！'];
 
 const STUB_LIST = [
-  ['神喰らいの大剣', '両手剣', null],
-  ['メタルキングの大剣', '両手剣', 13223],
-  ['エスタークの魔刃', '両手剣', 14033],
-  ['はかいのつるぎ', '両手剣', 4574],
   ['大太刀・立葵', '両手剣', null],
   ['獄炎の大剣', '両手剣', null],
   ['ロトのつるぎ', '片手剣', 601],
@@ -335,25 +330,128 @@ const YUSHA = {
   source: '9db.jp/dqwalk/data/18200', verified: false,
 };
 
+const KAMIGURAI = {
+  id: 'w_kamigurainotaiken', name: '神喰らいの大剣', type: '両手剣', rarity: 5,
+  attribute: '無/属性選択(メビウスフォース)', attack0: null, attack4: null,
+  skills: [
+    { name: '天裂く凶刃', mp: '60', desc: '敵全体に敵の数に応じて威力が800%〜1500%に変化するガード・みかわしされない斬撃ダメージを与える（メタル系に+99）', inheritable: true },
+    { name: 'メメントモリ・滅', mp: '最大MP15%', desc: '自身のレベルを10上げ一部を除くステータスが上昇し再行動。代償に味方全体のHPを消費し2ターン後に死亡する。（戦闘中1回のみ使用可能）', inheritable: false },
+    { name: 'メビウスフォース', mp: '17', desc: '自身の特殊効果「属性ダメージ+」の値が高い属性を2つフォースとして自身に付与。一部の攻撃に敵ごとに有効な属性で攻撃する。（戦闘中1回のみ使用可能）', inheritable: false }
+  ],
+  ikinari: [
+    { name: 'いきなりメビウスフォース', desc: '戦闘開始時：自身の特殊効果「属性ダメージ+」の値が高い属性を2つフォースとして自身に付与。一部の攻撃に敵ごとに有効な属性で攻撃する。' },
+    { name: '神へ挑む闘志', desc: '戦闘開始時：自身のテンションを2段階アップする。敵に？？？？系が含まれているなら「スーパーハイテンション」になり「まもりのたて（効果4ターン）」を付与する。' },
+    { name: 'レベルアップ', desc: '戦闘開始時：領域「レベルアップ」が発動。味方のレベルを戦闘中に確率でアップし一部を除くステータスが上昇する。' }
+  ],
+  chosen: [
+    { name: '無限の可能性', desc: '戦闘中：自身が「会心の一撃」を3回発生させると超越領域「レベルアップ」が発動する。' }
+  ],
+  passives: ['スキルの斬撃ダメージ+3%','全属性ダメージ+3%'],
+  limitBreakEffects: [],
+  inherit: {
+    r1: [{ kind: 'skill', name: '天裂く凶刃', mp: '60', desc: '敵全体に敵の数に応じて威力が800%〜1500%に変化するガード・みかわしされない斬撃ダメージを与える（メタル系に+99）' }],
+    r4: [],
+    r10: []
+  },
+  source: '検索結果より補完', verified: true,
+};
+
+const METAKIN_TAIKEN = {
+  id: 'w_metarukingunotaiken', name: 'メタルキングの大剣', type: '両手剣', rarity: 5,
+  attribute: 'ヒャド/ドルマ', attack0: 240, attack4: 360,
+  skills: [
+    { name: '次元斬', mp: '42', desc: '敵1体に敵ごとに有効なヒャド属性かドルマ属性の580%斬撃ダメージを与え、自身にまもりのたてを2ターン付与 (※ブラックホール中ガード・みかわしされない)', inheritable: true },
+    { name: 'グランドネビュラ', mp: '58', desc: '敵全体に敵ごとに有効なヒャド属性かドルマ属性の威力530%の斬撃ダメージ(メタル系に+80)を与える (※ブラックホール中ガード・みかわしされない)', inheritable: false },
+    { name: 'メタル超会心のかまえ', mp: '最大MP15%', desc: '次のターンまで受けるダメージを一部を除き半減し、次のターンにおこなう攻撃が超会心の一撃に変化する(戦闘中2回のみ使用可能)', inheritable: false }
+  ],
+  ikinari: [
+    { name: 'ブラックホール', desc: '戦闘開始時に領域「ブラックホール」を発動する。ブラックホール発動中は味方の攻撃でHPが15%以下になった敵を消滅させる(一部を除く)' },
+    { name: 'キングタイム', desc: '戦闘開始時にまれに味方全体を優先して行動させ、敵にメタル系が含まれているなら味方全体を優先して行動させる' }
+  ],
+  chosen: [
+    { name: '復讐の誓い', desc: '戦闘中自身が会心の一撃を3回発生させると領域「ブラックホール」を発動し、自身にバイキルトを付与する' }
+  ],
+  passives: ['けもの系へのダメージ+5%','悪魔系へのダメージ+5%','全属性ダメージ+3%','スキルの斬撃ダメージ+3%'],
+  limitBreakEffects: ['スキルの斬撃・体技ダメージ+7%','スキルの斬撃・体技ダメージ+7%','スキルの斬撃・体技ダメージ+7%','スキルの斬撃・体技ダメージ+7%'],
+  inherit: {
+    r1: [{ kind: 'skill', name: '次元斬', mp: '42', desc: '敵1体に敵ごとに有効なヒャド属性かドルマ属性の580%斬撃ダメージを与え、自身にまもりのたてを2ターン付与 (※ブラックホール中ガード・みかわしされない)' }],
+    r4: [],
+    r10: []
+  },
+  source: '9db.jp/dqwalk/data/13223', verified: true,
+};
+
+const ESTARK = {
+  id: 'w_esutaakunomajin', name: 'エスタークの魔刃', type: '片手剣', rarity: 5,
+  attribute: 'メラ/ギラ/無', attack0: null, attack4: null,
+  skills: [
+    { name: '天上天下断獄斬', mp: '55', desc: '敵1体に威力555%の斬撃ダメージを2回与え、自身の攻撃力を上げる(会心発生時に超会心になる)', inheritable: true },
+    { name: 'カタストロフクロス', mp: '45', desc: '全体に必中の290%の斬撃ダメージ(メタル系に+36)×2回', inheritable: false },
+    { name: '会心必中・絶', mp: '最大MP15%', desc: '自身の攻撃力を上げ限界突破を付与し、2ターンの間斬撃体技ダメージがガードやみかわしされない会心の一撃になる(戦闘中2回のみ使用可能)', inheritable: false },
+    { name: 'インフェルノフォース', mp: '16', desc: 'メラ・ギラのフォースを得る。両属性の耐性を上げ、一部の攻撃に敵ごとに有効な属性を付加(効果4ターン)', inheritable: false }
+  ],
+  ikinari: [
+    { name: 'いきなりインフェルノ', desc: '戦闘開始時にメラ・ギラのフォースを得る。両属性の耐性を上げ、一部の攻撃に敵ごとに有効な属性を付加(効果5ターン)' },
+    { name: 'まどろむ災厄', desc: '戦闘開始時にいてつくはどうと悪い状態変化と眠りを除く状態異常をふせぐ加護が宿る。ただし眠り耐性がかなり下がる(効果5ターン)' }
+  ],
+  chosen: [
+    { name: '滅ぼされる訳にはいかぬ', desc: '戦闘中自身が2行動連続で会心の一撃を成功させると、自身のHPとMPを一定量回復し良い効果を延長、更にもう1回行動できる' }
+  ],
+  passives: ['【二刀】二刀流時の斬撃・体技によるダメージ+5%','エスタークへのダメージ+5%','会心率+2%','ドラゴン系へのダメージ+5%'],
+  limitBreakEffects: ['スキルの斬撃・体技ダメージ+7%','スキルの斬撃・体技ダメージ+7%','スキルの斬撃・体技ダメージ+7%','スキルの斬撃・体技ダメージ+7%'],
+  inherit: {
+    r1: [{ kind: 'skill', name: '天上天下断獄斬', mp: '55', desc: '敵1体に威力555%の斬撃ダメージを2回与え、自身の攻撃力を上げる(会心発生時に超会心になる)' }],
+    r4: [],
+    r10: []
+  },
+  source: '9db.jp/dqwalk/data/14033', verified: true,
+};
+
+const HAKAI = {
+  id: 'w_hakainotsurugi', name: 'はかいのつるぎ', type: '片手剣', rarity: 5,
+  attribute: 'ジバリア', attack0: null, attack4: null,
+  skills: [
+    { name: '破壊の斬光改', mp: '60', desc: '敵全体に威力600%のジバリア属性斬撃ダメージを与えるが、呪いによって自分のMPとHPが減る', cond: '錬成改1', inheritable: true },
+    { name: '破壊の双隼', mp: '28', desc: '敵1体に1発190%のジバリア属性斬撃を2回与える。まれに呪いによって最大HPの15％HPが減少する', inheritable: true },
+    { name: 'まじん斬り', mp: '7', desc: '敵1体に30%の確率で斬撃ダメージの会心の一撃を与える。こころや心珠で会心率を上げても影響を受けない。', inheritable: false },
+    { name: 'もろば斬り', mp: '7', desc: '敵1体に威力200%の斬撃ダメージを与えるが、与えたダメージの20％を自身も受ける', inheritable: false },
+    { name: 'ブレードガード', mp: '7', desc: '自身のガード率を1段階上げる', inheritable: false }
+  ],
+  ikinari: [],
+  chosen: [],
+  passives: ['物質系へのダメージ+5%','ゾンビ系へのダメージ+5%','攻撃時+2%の確率で眠りを与える'],
+  limitBreakEffects: ['スキルの斬撃・体技ダメージ+5%','スキルの斬撃・体技ダメージ+5%','スキルの斬撃・体技ダメージ+5%','スキルの斬撃・体技ダメージ+5%'],
+  inherit: {
+    r1: [{ kind: 'skill', name: '破壊の斬光改', mp: '60', desc: '敵全体に威力600%のジバリア属性斬撃ダメージを与えるが、呪いによって自分のMPとHPが減る' }],
+    r4: [],
+    r10: []
+  },
+  source: '9db.jp/dqwalk/data/4574', verified: true,
+};
+
 function seedWeapons() {
-  return [MAOU, YUSHA].concat(STUB_LIST.map(makeStub));
+  return [MAOU, YUSHA, KAMIGURAI, METAKIN_TAIKEN, ESTARK, HAKAI].concat(STUB_LIST.map(makeStub));
 }
 
 /* ---- バリデーション（データ不備の判定） ---- */
-function checkDeficient(w) {
-  if (w.attack0 == null || w.attack4 == null) return true;
-  if (!w.skills || w.skills.length === 0) return true;
+function getDeficiencyReason(w) {
+  if (w.attack0 == null || w.attack4 == null) return '攻撃力データ欠落';
+  if (!w.skills || w.skills.length === 0) return '通常スキルなし';
   for (let i = 0; i < w.skills.length; i++) {
     const s = w.skills[i];
-    if (s.name.indexOf('要データ取得') !== -1 || !s.desc || s.desc === '効果データなし') return true;
+    if (s.name.indexOf('要データ取得') !== -1 || !s.desc || s.desc === '効果データなし') return 'スキル「' + (s.name || '不明') + '」の内容不備';
   }
   if (w.ikinari && w.ikinari.length > 0) {
     for (let i = 0; i < w.ikinari.length; i++) {
       const s = w.ikinari[i];
-      if (!s.desc || s.desc === '効果データなし') return true;
+      if (!s.desc || s.desc === '効果データなし') return 'いきなりスキル「' + (s.name || '不明') + '」の内容不備';
     }
   }
-  return false;
+  return null;
+}
+
+function checkDeficient(w) {
+  return getDeficiencyReason(w) !== null;
 }
 
 /* ---- 継承合成 ---- */
@@ -477,6 +575,10 @@ function importWeapons(jsonText, current) {
     if (!w.id || !w.name || !w.type || !w.inherit) {
       return { ok: false, msg: (i+1) + '件目の武器で id / name / type / inherit のいずれかが欠けています' };
     }
+    const reason = getDeficiencyReason(w);
+    if (reason) {
+      return { ok: false, msg: (i+1) + '件目（' + w.name + '）に不備があり取り込みを中止しました（理由：' + reason + '）' };
+    }
   }
   const map = new Map(current.map(function(w){ return [w.id, w]; }));
   arr.forEach(function(w){
@@ -555,20 +657,8 @@ function renderSteal() {
       html += '</div>';
       html += '<div style="font-size:11.5px;color:var(--skillDesc);line-height:1.6">' + esc(top.desc || '効果データなし') + '</div>';
 
-      if (w.skills && w.skills.length > 0) {
-        html += '<div style="margin-top:12px;border-top:1px dashed var(--divider);padding-top:8px;">';
-        html += '<div style="font-size:11px;font-weight:700;color:var(--gold);margin-bottom:6px">🗡️ 通常スキル</div>';
-        w.skills.forEach(function(s) {
-          html += '<div style="margin-bottom:6px;">';
-          html += '<div style="display:flex;justify-content:space-between;font-size:12.5px;font-weight:700;color:var(--skillName)"><span>' + esc(s.name) + (s.cond ? '〔' + esc(s.cond) + '〕' : '') + '</span><span style="font-size:10px;color:var(--textFaint)">MP ' + esc(s.mp || '?') + '</span></div>';
-          html += '<div style="font-size:11px;color:var(--skillDesc);line-height:1.5">' + esc(s.desc || '効果データなし') + '</div>';
-          html += '</div>';
-        });
-        html += '</div>';
-      }
-
       if (w.ikinari && w.ikinari.length > 1) {
-        html += '<div style="margin-top:6px;border-top:1px dashed var(--divider);padding-top:8px;">';
+        html += '<div style="margin-top:12px;border-top:1px dashed var(--divider);padding-top:8px;">';
         html += '<div style="font-size:11px;font-weight:700;color:#d88a3a;margin-bottom:6px">⚡ 他のいきなり（上をOFFにすると奪取対象）</div>';
         for (let i = 1; i < w.ikinari.length; i++) {
           const ik = w.ikinari[i];
@@ -832,13 +922,6 @@ $('exportBtn').addEventListener('click', function(){
   }
 });
 
-$('resetBtn').addEventListener('click', function(){
-  if (confirm('DBをシードデータに初期化します。追加した武器は消えます。よろしいですか？')) {
-    weapons = seedWeapons(); persist(); renderDB();
-    $('ioMsg').textContent = 'DBを初期化しました';
-  }
-});
-
 /* ============ 起動 ============ */
 function boot(initialWeapons) {
   weapons = initialWeapons;
@@ -873,3 +956,8 @@ function boot(initialWeapons) {
 </script>
 </body>
 </html>
+
+
+
+
+```
