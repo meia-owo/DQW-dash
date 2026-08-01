@@ -1,3 +1,4 @@
+<!-- index.html v1.1.0 -->
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -454,9 +455,6 @@ function importWeapons(jsonText, current) {
   return { ok: true, msg: arr.length + '件の武器を取り込みました（同IDは上書き）', weapons: Array.from(map.values()) };
 }
 
-
-
-
 /* ============ アプリ状態 ============ */
 const LS_KEY = 'dqw-keisho-db-v3';
 const LS_THEME = 'dqw-keisho-theme';
@@ -525,11 +523,33 @@ function renderSteal() {
       html += '<span style="font-size:13px;font-weight:700;color:' + (unst ? '#d89a9a' : 'var(--skillName)') + '">' + esc(top.name) + '</span>';
       if (top.cond) html += chip('#9a6fd0', top.cond);
       html += '</div>';
-      html += '<div style="font-size:11.5px;color:var(--skillDesc);line-height:1.6">' + esc(top.desc) + '</div>';
-      if (w.ikinari.length > 1) {
-        const others = w.ikinari.slice(1).map(function(s){ return s.name + (s.cond ? '〔' + s.cond + '〕' : ''); }).join('／');
-        html += '<div class="note" style="margin-top:6px">他のいきなり：' + esc(others) + '（奪えるのは一番上のみ。奪いたいスキルが下にある場合は上をOFFに）</div>';
+      html += '<div style="font-size:11.5px;color:var(--skillDesc);line-height:1.6">' + esc(top.desc || '効果データなし') + '</div>';
+
+      if (w.skills && w.skills.length > 0) {
+        html += '<div style="margin-top:12px;border-top:1px dashed var(--divider);padding-top:8px;">';
+        html += '<div style="font-size:11px;font-weight:700;color:var(--gold);margin-bottom:6px">🗡️ 通常スキル</div>';
+        w.skills.forEach(function(s) {
+          html += '<div style="margin-bottom:6px;">';
+          html += '<div style="display:flex;justify-content:space-between;font-size:12.5px;font-weight:700;color:var(--skillName)"><span>' + esc(s.name) + (s.cond ? '〔' + esc(s.cond) + '〕' : '') + '</span><span style="font-size:10px;color:var(--textFaint)">MP ' + esc(s.mp || '?') + '</span></div>';
+          html += '<div style="font-size:11px;color:var(--skillDesc);line-height:1.5">' + esc(s.desc || '効果データなし') + '</div>';
+          html += '</div>';
+        });
+        html += '</div>';
       }
+
+      if (w.ikinari && w.ikinari.length > 1) {
+        html += '<div style="margin-top:6px;border-top:1px dashed var(--divider);padding-top:8px;">';
+        html += '<div style="font-size:11px;font-weight:700;color:#d88a3a;margin-bottom:6px">⚡ 他のいきなり（上をOFFにすると奪取対象）</div>';
+        for (let i = 1; i < w.ikinari.length; i++) {
+          const ik = w.ikinari[i];
+          html += '<div style="margin-bottom:6px;">';
+          html += '<div style="font-size:12.5px;font-weight:700;color:var(--skillName)">' + esc(ik.name) + (ik.cond ? '〔' + esc(ik.cond) + '〕' : '') + '</div>';
+          html += '<div style="font-size:11px;color:var(--skillDesc);line-height:1.5">' + esc(ik.desc || '効果データなし') + '</div>';
+          html += '</div>';
+        }
+        html += '</div>';
+      }
+
       html += '</div>';
     } else {
       html += '<div style="font-size:11px;color:var(--textFaint)">いきなりスキルのデータ未登録（DB管理の取得用プロンプトで埋めると表示されます）</div>';
@@ -538,12 +558,9 @@ function renderSteal() {
   });
   $('stealList').innerHTML = html || '<div class="note">該当する武器がありません</div>';
 }
-$('stealSearch').addEventListener('input', renderSteal);
-$('stealType').addEventListener('change', renderSteal);
 
 /* ============ 継承タブ ============ */
 function renderSim() {
-  // フィルタ＆ベース選択肢（継承ぶきに選ばれた武器は除外＝相互排他）
   const filtered = weapons.filter(function(w){ return (state.filterType === 'すべて' || w.type === state.filterType) && w.id !== state.inhId; });
   if (state.baseId && !filtered.some(function(w){ return w.id === state.baseId; })) { state.baseId = ''; state.inhId = ''; }
   let html = '<option value="">選択してください</option>';
@@ -554,7 +571,6 @@ function renderSim() {
 
   const base = weapons.find(function(w){ return w.id === state.baseId; });
 
-  // ベース情報チップ
   let info = '';
   if (base) {
     info += chip('#7aa8f0', base.type) + chip('#e0a04b', base.attribute);
@@ -563,7 +579,6 @@ function renderSim() {
   }
   $('baseInfo').innerHTML = info ? '<div style="margin-top:8px">' + info + '</div>' : '';
 
-  // 凸ボタン
   let lbHtml = '';
   [0,1,2,3,4].forEach(function(v){
     lbHtml += '<button class="btn' + (state.lb === v ? ' active' : '') + '" data-lb="' + v + '">' + v + '凸</button>';
@@ -573,7 +588,6 @@ function renderSim() {
     b.addEventListener('click', function(){ state.lb = Number(b.dataset.lb); renderSim(); });
   });
 
-  // 継承ぶき選択肢（同一武器種のみ・ベース除外）
   const cands = base ? weapons.filter(function(w){ return w.type === base.type && w.id !== base.id; }) : [];
   let inhHtml = '<option value="">（継承なし）</option>';
   cands.forEach(function(w){
@@ -596,7 +610,6 @@ function renderSim() {
     });
   }
 
-  // 結果
   const res = simulate(base, inh, state.rendo, state.lb);
   if (!res || !base) { $('resultBox').innerHTML = '<div class="card" style="text-align:center;color:var(--textFaint);border-style:dashed">武器を選択してください</div>'; return; }
 
@@ -665,7 +678,6 @@ function renderDB() {
     });
   });
 
-  // 一括セレクト
   let bHtml = '<option value="すべて">すべての武器種（' + weapons.filter(function(w){return !w.verified;}).length + '本）</option>';
   WEAPON_TYPES.forEach(function(t){
     const n = weapons.filter(function(w){ return !w.verified && w.type === t; }).length;
@@ -718,7 +730,6 @@ $('importBtn').addEventListener('click', function(){
   doImport($('ioArea').value, '貼り付け');
 });
 
-// ファイルから取り込み（貼り付けで切れる問題の根本対策）
 $('fileInput').addEventListener('change', function(e){
   const file = e.target.files && e.target.files[0];
   if (!file) return;
@@ -728,7 +739,6 @@ $('fileInput').addEventListener('change', function(e){
   reader.readAsText(file, 'utf-8');
 });
 
-// 貼り付け欄の文字数を常に表示（切れてないかの目安）
 $('ioArea').addEventListener('input', function(){
   const n = this.value.length;
   $('lenNote').textContent = n > 0 ? '現在 ' + n.toLocaleString() + ' 文字（数千〜1万文字を超える場合は途中で切れていないか末尾の "}]" の有無を確認、または上のファイル取り込みを推奨）' : '';
@@ -771,8 +781,6 @@ $('resetBtn').addEventListener('click', function(){
 });
 
 /* ============ 起動 ============ */
-// 同じ場所に weapons.json を置いておけば、GitHub Pages公開時に「全員共通の最新DB」として
-// 自動読込されます（ローカルで編集したデータがあればそちらを優先）。将来Gitでの共同管理に使う想定。
 function boot(initialWeapons) {
   weapons = initialWeapons;
   applyTheme(lsGet(LS_THEME) || 'dark');
@@ -789,12 +797,8 @@ function boot(initialWeapons) {
 (function initApp(){
   const local = lsGet(LS_KEY);
   if (local) { try { const p = JSON.parse(local); if (Array.isArray(p) && p.length) { boot(p); return; } } catch(e) {} }
-  // ローカル保存が無い初回のみ weapons.json を試す。
-  // file://で直接開いた場合など fetch が同期的に使えない/失敗する環境でも
-  // 必ず起動できるよう try-catch と Promise.catch の二重で保護する。
   let booted = false;
   const bootOnce = function(w) { if (booted) return; booted = true; boot(w); };
-  // fetchが応答しない（ハングする）環境でも2.5秒で必ず起動できるようタイムアウト保険をかける
   const timeoutId = setTimeout(function(){ bootOnce(seedWeapons()); }, 2500);
   try {
     if (typeof fetch !== 'function') throw new Error('fetch unavailable');
