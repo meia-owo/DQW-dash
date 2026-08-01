@@ -160,14 +160,19 @@ textarea { min-height: 120px; font-family: ui-monospace, monospace; font-size: 1
     <button class="btn active full" id="newBtn">取得プロンプトを生成</button>
   </div>
   <div class="card">
-    <div class="label">プロンプト／JSONインポート欄（新規追加・上書き更新）</div>
+    <div class="label">📁 JSONファイルから取り込む（貼り付けで切れる場合はこちら推奨）</div>
+    <input type="file" id="fileInput" accept="application/json,.json" style="width:100%;background:var(--inputBg);border:1px solid var(--cardBorder);color:var(--text);border-radius:8px;padding:10px 12px;font-size:13px;">
+    <div class="note" style="margin-top:6px">ClaudeのチャットでJSONを作らせたら「〇〇.jsonとしてファイルで出力して」と頼むと、貼り付け不要でこの欄からそのまま取り込めます。</div>
+
+    <div class="label" style="margin-top:16px">プロンプト／JSON貼り付け欄（新規追加・上書き更新）</div>
     <textarea id="ioArea" placeholder="ここに生成プロンプトが出ます／JSONを貼って「取り込む」"></textarea>
+    <div class="note" id="lenNote" style="margin-top:4px"></div>
     <div class="row" style="margin-top:8px">
-      <button class="btn active" id="importBtn">取り込む</button>
+      <button class="btn active" id="importBtn">貼り付け内容を取り込む</button>
       <button class="btn" id="copyBtn">欄の内容をコピー</button>
     </div>
     <div class="row">
-      <button class="btn" id="exportBtn">全データ書き出し</button>
+      <button class="btn" id="exportBtn">JSONファイルで保存</button>
       <button class="btn danger" id="resetBtn">初期化</button>
     </div>
     <div class="msg" id="ioMsg"></div>
@@ -697,16 +702,36 @@ $('newBtn').addEventListener('click', function(){
   $('newName').value = '';
 });
 
-$('importBtn').addEventListener('click', function(){
-  const result = importWeapons($('ioArea').value, weapons);
+function doImport(text, sourceLabel) {
+  const result = importWeapons(text, weapons);
   if (result.ok) {
     weapons = result.weapons; persist();
     $('ioArea').value = '';
-    $('ioMsg').textContent = '✅ ' + result.msg;
+    $('ioMsg').textContent = '✅ [' + sourceLabel + '] ' + result.msg;
     renderDB();
   } else {
-    $('ioMsg').textContent = '❌ ' + result.msg;
+    $('ioMsg').textContent = '❌ [' + sourceLabel + '] ' + result.msg + '（文字数が多いと貼り付けで切れることがあります。ファイル取り込みもお試しください）';
   }
+}
+
+$('importBtn').addEventListener('click', function(){
+  doImport($('ioArea').value, '貼り付け');
+});
+
+// ファイルから取り込み（貼り付けで切れる問題の根本対策）
+$('fileInput').addEventListener('change', function(e){
+  const file = e.target.files && e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(ev){ doImport(ev.target.result, 'ファイル:' + file.name); e.target.value = ''; };
+  reader.onerror = function(){ $('ioMsg').textContent = '❌ ファイルの読み込みに失敗しました'; };
+  reader.readAsText(file, 'utf-8');
+});
+
+// 貼り付け欄の文字数を常に表示（切れてないかの目安）
+$('ioArea').addEventListener('input', function(){
+  const n = this.value.length;
+  $('lenNote').textContent = n > 0 ? '現在 ' + n.toLocaleString() + ' 文字（数千〜1万文字を超える場合は途中で切れていないか末尾の "}]" の有無を確認、または上のファイル取り込みを推奨）' : '';
 });
 
 $('copyBtn').addEventListener('click', function(){
@@ -724,7 +749,18 @@ $('copyBtn').addEventListener('click', function(){
 });
 
 $('exportBtn').addEventListener('click', function(){
-  outputToIO(JSON.stringify(weapons, null, 2), '全データ（' + weapons.length + '件）を書き出しました');
+  const text = JSON.stringify(weapons, null, 2);
+  try {
+    const blob = new Blob([text], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'dqw-weapons-' + new Date().toISOString().slice(0,10) + '.json';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    $('ioMsg').textContent = '✅ dqw-weapons-*.json としてダウンロードしました（' + weapons.length + '件）';
+  } catch (e) {
+    outputToIO(text, '全データ（' + weapons.length + '件）を書き出しました（ダウンロード不可のため下の欄に出力）');
+  }
 });
 
 $('resetBtn').addEventListener('click', function(){
@@ -735,16 +771,41 @@ $('resetBtn').addEventListener('click', function(){
 });
 
 /* ============ 起動 ============ */
-weapons = loadWeapons();
-applyTheme(lsGet(LS_THEME) || 'dark');
-fillTypeSelect($('stealType'), true);
-(function(){
-  let fHtml = '<option value="すべて">全種</option>';
-  WEAPON_TYPES.forEach(function(t){ fHtml += '<option value="' + t + '">' + t + '</option>'; });
-  $('filterType').innerHTML = fHtml;
+// 同じ場所に weapons.json を置いておけば、GitHub Pages公開時に「全員共通の最新DB」として
+// 自動読込されます（ローカルで編集したデータがあればそちらを優先）。将来Gitでの共同管理に使う想定。
+function boot(initialWeapons) {
+  weapons = initialWeapons;
+  applyTheme(lsGet(LS_THEME) || 'dark');
+  fillTypeSelect($('stealType'), true);
+  (function(){
+    let fHtml = '<option value="すべて">全種</option>';
+    WEAPON_TYPES.forEach(function(t){ fHtml += '<option value="' + t + '">' + t + '</option>'; });
+    $('filterType').innerHTML = fHtml;
+  })();
+  fillTypeSelect($('newType'), false);
+  showTab('steal');
+}
+
+(function initApp(){
+  const local = lsGet(LS_KEY);
+  if (local) { try { const p = JSON.parse(local); if (Array.isArray(p) && p.length) { boot(p); return; } } catch(e) {} }
+  // ローカル保存が無い初回のみ weapons.json を試す。
+  // file://で直接開いた場合など fetch が同期的に使えない/失敗する環境でも
+  // 必ず起動できるよう try-catch と Promise.catch の二重で保護する。
+  let booted = false;
+  const bootOnce = function(w) { if (booted) return; booted = true; boot(w); };
+  // fetchが応答しない（ハングする）環境でも2.5秒で必ず起動できるようタイムアウト保険をかける
+  const timeoutId = setTimeout(function(){ bootOnce(seedWeapons()); }, 2500);
+  try {
+    if (typeof fetch !== 'function') throw new Error('fetch unavailable');
+    fetch('./weapons.json').then(function(r){ if (!r.ok) throw 0; return r.json(); })
+      .then(function(j){ clearTimeout(timeoutId); bootOnce(Array.isArray(j) && j.length ? j : seedWeapons()); })
+      .catch(function(){ clearTimeout(timeoutId); bootOnce(seedWeapons()); });
+  } catch (e) {
+    clearTimeout(timeoutId);
+    bootOnce(seedWeapons());
+  }
 })();
-fillTypeSelect($('newType'), false);
-showTab('steal');
 </script>
 </body>
 </html>
