@@ -527,40 +527,40 @@ const TAG_CATS = [
   { id:'boost',    label:'系統特効ブースト' }
 ];
 const TAG_DEFS = [
-  { id:'atk_up',      label:'攻撃力アップ',   category:'selfbuf',  patterns:[/こうげき力を[^。]*上げ/, /攻撃力を[^。]*上げ/, /バイキルト/] },
-  { id:'def_up',      label:'守備力アップ',   category:'selfbuf',  patterns:[/しゅび力を[^。]*上げ/, /守備力を[^。]*上げ/, /スクルト/] },
-  { id:'spd_up',      label:'すばやさアップ', category:'selfbuf',  patterns:[/すばやさを[^。]*上げ/, /ピオラ/] },
+  { id:'atk_up',      label:'攻撃力アップ',   category:'selfbuf',  hl:[/こうげき力/, /攻撃力/, /バイキルト/, /上げ/], patterns:[/こうげき力を[^。]*上げ/, /攻撃力を[^。]*上げ/, /バイキルト/] },
+  { id:'def_up',      label:'守備力アップ',   category:'selfbuf',  hl:[/しゅび力/, /守備力/, /スクルト/, /上げ/], patterns:[/しゅび力を[^。]*上げ/, /守備力を[^。]*上げ/, /スクルト/] },
+  { id:'spd_up',      label:'すばやさアップ', category:'selfbuf',  hl:[/すばやさ/, /ピオラ/, /上げ/], patterns:[/すばやさを[^。]*上げ/, /ピオラ/] },
   { id:'tension',     label:'テンション',     category:'selfbuf',  patterns:[/テンション/] },
   { id:'crit',        label:'会心強化',       category:'selfbuf',  patterns:[/会心/],
     exclude:[/会心発生時/, /会心が?発生した?時/, /会心の一撃を?(出した|与えた)時/] },
   { id:'crit_react',  label:'会心時反撃',     category:'selfbuf',  patterns:[/会心発生時/, /会心が?発生した?時/, /会心の一撃を?(出した|与えた)時/] },
-  { id:'sure_hit',    label:'必中',           category:'selfbuf',  patterns:[/必中/, /ガードやみかわしされな/, /みかわし[^。]*されな/, /ガード[^。]*されな/, /ガードや?みかわしを?無視/] },
+  { id:'sure_hit',    label:'必中',           category:'selfbuf',  hl:[/必中/, /ガード/, /みかわし/], patterns:[/必中/, /ガードやみかわしされな/, /みかわし[^。]*されな/, /ガード[^。]*されな/, /ガードや?みかわしを?無視/] },
   { id:'force',       label:'フォース付与',   category:'selfbuf',  patterns:[/フォース/] },
   { id:'mebius',      label:'メビウスフォース',category:'selfbuf', patterns:[/メビウスフォース/] },
-  { id:'elem_dmg',    label:'属性ダメージ+',  category:'selfbuf',  patterns:[/属性ダメージ\+/, /属性ダメージを[^。]*上げ/, /属性ダメージ[^。]*高い/] },
-  { id:'shield',      label:'まもりのたて',   category:'defense',  patterns:[/まもりのたて/, /状態異常をふせぐ/, /悪い状態変化/] },
-  { id:'spell_cut',   label:'呪文軽減・無効', category:'defense',  patterns:[/呪文ダメージ[^。]*軽減/, /呪文ダメージ[^。]*無効/] },
-  { id:'breath_cut',  label:'ブレス軽減',     category:'defense',  patterns:[/ブレス[^。]*軽減/, /ブレス[^。]*無効/] },
-  { id:'survive',     label:'HP1で生存',      category:'defense',  patterns:[/HP1で/, /致死ダメージ/, /生き残る/] },
+  { id:'elem_dmg',    label:'属性ダメージ+',  category:'selfbuf',  hl:[/属性ダメージ/, /上げ/, /高い/], patterns:[/属性ダメージ\+/, /属性ダメージを[^。]*上げ/, /属性ダメージ[^。]*高い/] },
+  { id:'shield',      label:'まもりのたて',   category:'defense',  hl:[/まもりのたて/, /状態異常/, /悪い状態変化/], patterns:[/まもりのたて/, /状態異常をふせぐ/, /悪い状態変化/] },
+  { id:'spell_cut',   label:'呪文軽減・無効', category:'defense',  hl:[/呪文ダメージ/, /軽減/, /無効/], patterns:[/呪文ダメージ[^。]*軽減/, /呪文ダメージ[^。]*無効/] },
+  { id:'breath_cut',  label:'ブレス軽減',     category:'defense',  hl:[/ブレス/, /軽減/, /無効/], patterns:[/ブレス[^。]*軽減/, /ブレス[^。]*無効/] },
+  { id:'survive',     label:'HP1で生存',      category:'defense',  hl:[/HP1/, /致死ダメージ/, /生き残る/], patterns:[/HP1で/, /致死ダメージ/, /生き残る/] },
   { id:'hadou_guard', label:'いてはガード', category:'defense',  patterns:[/いてつくはどう/] },
-  { id:'nullify',     label:'無効化・反射',   category:'defense',  patterns:[/無効にする/, /反射/] },
-  { id:'first',       label:'先制',           category:'order',    patterns:[/先制/, /優先して行動/] },
-  { id:'first_fix',   label:'確定先制',       category:'order',    patterns:[/必ず先制/, /確定先制/, /キングタイム/, /先制[^。]*確定/] },
+  { id:'nullify',     label:'無効化・反射',   category:'defense',  hl:[/無効にする/, /反射/], patterns:[/無効にする/, /反射/] },
+  { id:'first',       label:'先制',           category:'order',    hl:[/先制/, /優先して行動/], patterns:[/先制/, /優先して行動/] },
+  { id:'first_fix',   label:'確定先制',       category:'order',    hl:[/必ず先制/, /確定先制/, /キングタイム/], patterns:[/必ず先制/, /確定先制/, /キングタイム/, /先制[^。]*確定/] },
   { id:'reaction',    label:'再行動',         category:'order',    patterns:[/再行動/] },
   { id:'extend',      label:'効果延長',       category:'order',    patterns:[/延長/] },
   { id:'kiai',        label:'きあいため',     category:'order',    patterns:[/きあいため/] },
   { id:'freeze',      label:'凍結付与',       category:'debuff',   patterns:[/凍結/] },
-  { id:'debuff_atk',  label:'攻撃減',         category:'debuff',   patterns:[/こうげき力を[^。]*下げ/, /攻撃力を[^。]*下げ/] },
-  { id:'debuff_def',  label:'守備減',         category:'debuff',   patterns:[/しゅび力を[^。]*下げ/, /守備力を[^。]*下げ/] },
-  { id:'debuff_spd',  label:'すばやさ減',     category:'debuff',   patterns:[/すばやさを[^。]*下げ/, /すばやさ-/] },
-  { id:'resist_down', label:'耐性減',         category:'debuff',   patterns:[/耐性を[^。]*減らし/, /耐性を[^。]*下げ/, /耐性[^。]*強制的/, /耐性[^。]*減/] },
-  { id:'dispel',      label:'強化効果解除',   category:'debuff',   patterns:[/強化効果を[^。]*解除/, /良い効果を[^。]*解除/] },
+  { id:'debuff_atk',  label:'攻撃減',         category:'debuff',   hl:[/こうげき力/, /攻撃力/, /下げ/], patterns:[/こうげき力を[^。]*下げ/, /攻撃力を[^。]*下げ/] },
+  { id:'debuff_def',  label:'守備減',         category:'debuff',   hl:[/しゅび力/, /守備力/, /下げ/], patterns:[/しゅび力を[^。]*下げ/, /守備力を[^。]*下げ/] },
+  { id:'debuff_spd',  label:'すばやさ減',     category:'debuff',   hl:[/すばやさ/, /下げ/], patterns:[/すばやさを[^。]*下げ/, /すばやさ-/] },
+  { id:'resist_down', label:'耐性減',         category:'debuff',   hl:[/耐性/, /減らし/, /下げ/], patterns:[/耐性を[^。]*減らし/, /耐性を[^。]*下げ/, /耐性[^。]*強制的/, /耐性[^。]*減/] },
+  { id:'dispel',      label:'強化効果解除',   category:'debuff',   hl:[/強化効果/, /良い効果/, /解除/], patterns:[/強化効果を[^。]*解除/, /良い効果を[^。]*解除/] },
   { id:'field',       label:'領域',           category:'area',     patterns:[/領域/] },
   { id:'field_over',  label:'超越領域',       category:'area',     patterns:[/超越領域/] },
   { id:'zone',        label:'ゾーン',         category:'area',     patterns:[/ゾーン/] },
-  { id:'mp',          label:'MP回復・消費減',         category:'resource', patterns:[/MPを[^。]*回復/, /MP回復/, /消費MP[^。]*(軽減|減|なし|0)/, /MP消費[^。]*(軽減|減|なし|0)/, /消費[^。]*軽減/] },
-  { id:'hp',          label:'HP回復',         category:'resource', patterns:[/HPを[^。]*回復/, /HPが[^。]*回復/] },
-  { id:'family_boost',label:'系統特効ブースト',category:'boost',   patterns:[/系へのダメージ\+」?の効果値/, /効果値を[0-9．.]+倍/] }
+  { id:'mp',          label:'MP回復・消費減',         category:'resource', hl:[/MP/, /回復/, /軽減/], patterns:[/MPを[^。]*回復/, /MP回復/, /消費MP[^。]*(軽減|減|なし|0)/, /MP消費[^。]*(軽減|減|なし|0)/, /消費[^。]*軽減/] },
+  { id:'hp',          label:'HP回復',         category:'resource', hl:[/HP/, /回復/], patterns:[/HPを[^。]*回復/, /HPが[^。]*回復/] },
+  { id:'family_boost',label:'系統特効ブースト',category:'boost',   hl:[/効果値/, /倍/], patterns:[/系へのダメージ\+」?の効果値/, /効果値を[0-9．.]+倍/] }
 ];
 
 /* 1スキル単位のタグ判定（バッジ表示にも使う） */
@@ -585,9 +585,13 @@ function markHit(text, tagId) {
     scan = scan.replace(new RegExp(re.source, 'g'), function(m){ return '　'.repeat(m.length); });
   });
   let ranges = [];
-  def.patterns.forEach(function(re){
-    const m = re.exec(scan);
-    if (m && m[0]) ranges.push([m.index, m.index + m[0].length]);
+  (def.hl || def.patterns).forEach(function(re){
+    const g = new RegExp(re.source, 'g');
+    let m, guard = 0;
+    while ((m = g.exec(scan)) !== null && guard++ < 30) {
+      if (!m[0]) { g.lastIndex++; continue; }
+      ranges.push([m.index, m.index + m[0].length]);
+    }
   });
   if (!ranges.length) return esc(raw);
   ranges.sort(function(a, b){ return a[0] - b[0]; });
