@@ -69,7 +69,7 @@ textarea { min-height: 120px; font-family: ui-monospace, monospace; font-size: 1
 .db-row .nm { font-size: 13px; font-weight: 700; }
 .db-row .src { font-size: 10px; color: var(--textFaint); }
 .db-row button { flex: none; padding: 6px 10px; font-size: 11px; }
-.msg { font-size: 12px; margin-top: 8px; color: var(--goldText); line-height: 1.6; }
+.msg { font-size: 12px; margin-top: 8px; color: var(--goldText); line-height: 1.6; white-space: pre-line; }
 .steal-card { opacity: 1; }
 .steal-card.nodata { opacity: 0.55; }
 .steal-inner { background: var(--innerBg); border: 1px solid #d88a3a55; border-radius: 10px; padding: 10px 12px; }
@@ -438,7 +438,7 @@ function getDeficiencyReason(w) {
   if (!w.skills || w.skills.length === 0) return '通常スキルなし';
   for (let i = 0; i < w.skills.length; i++) {
     const s = w.skills[i];
-    if (s.name.indexOf('要データ取得') !== -1 || !s.desc || s.desc === '効果データなし') return 'スキル「' + (s.name || '不明') + '」の内容不備';
+    if ((s.name && s.name.indexOf('要データ取得') !== -1) || !s.desc || s.desc === '効果データなし') return 'スキル「' + (s.name || '不明') + '」の内容不備';
   }
   if (w.ikinari && w.ikinari.length > 0) {
     for (let i = 0; i < w.ikinari.length; i++) {
@@ -569,21 +569,25 @@ function importWeapons(jsonText, current) {
     catch (e2) { return { ok: false, msg: 'JSONの解析に失敗：' + e2.message }; }
   }
   const arr = Array.isArray(parsed) ? parsed : [parsed];
+  const deficientNames = [];
   for (let i = 0; i < arr.length; i++) {
     const w = arr[i];
     if (!w.id || !w.name || !w.type || !w.inherit) {
-      return { ok: false, msg: (i+1) + '件目の武器で id / name / type / inherit のいずれかが欠けています' };
+      return { ok: false, msg: (i+1) + '件目の武器で id / name / type / inherit のいずれかが欠けています（必須項目のため取り込み不可）' };
     }
+    // データ不備（skillのdesc空など）は取り込みをブロックせず、後で🚨バッジで分かるようにするだけに留める
     const reason = getDeficiencyReason(w);
-    if (reason) {
-      return { ok: false, msg: (i+1) + '件目（' + w.name + '）に不備があり取り込みを中止しました（理由：' + reason + '）' };
-    }
+    if (reason) deficientNames.push((i+1) + '件目「' + w.name + '」：' + reason);
   }
   const map = new Map(current.map(function(w){ return [w.id, w]; }));
   arr.forEach(function(w){
     map.set(w.id, Object.assign({ verified: false, skills: [], ikinari: [], chosen: [], passives: [], limitBreakEffects: [], rarity: 5 }, w));
   });
-  return { ok: true, msg: arr.length + '件の武器を取り込みました（同IDは上書き）', weapons: Array.from(map.values()) };
+  let msg = arr.length + '件の武器を取り込みました（同IDは上書き）';
+  if (deficientNames.length) {
+    msg += '\n⚠️ ' + deficientNames.length + '件は不備あり（🚨バッジ表示・取り込みは実施）：\n' + deficientNames.join('\n');
+  }
+  return { ok: true, msg: msg, weapons: Array.from(map.values()) };
 }
 
 /* ============ アプリ状態 ============ */
