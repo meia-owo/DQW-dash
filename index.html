@@ -524,7 +524,9 @@ const TAG_DEFS = [
   { id:'def_up',      label:'守備力アップ',   category:'selfbuf',  patterns:[/しゅび力を[^。]*上げ/, /守備力を[^。]*上げ/, /スクルト/] },
   { id:'spd_up',      label:'すばやさアップ', category:'selfbuf',  patterns:[/すばやさを[^。]*上げ/, /ピオラ/] },
   { id:'tension',     label:'テンション',     category:'selfbuf',  patterns:[/テンション/] },
-  { id:'crit',        label:'会心強化',       category:'selfbuf',  patterns:[/会心/] },
+  { id:'crit',        label:'会心強化',       category:'selfbuf',  patterns:[/会心/],
+    exclude:[/会心発生時/, /会心が?発生した?時/, /会心の一撃を?(出した|与えた)時/] },
+  { id:'crit_react',  label:'会心時反撃',     category:'selfbuf',  patterns:[/会心発生時/, /会心が?発生した?時/, /会心の一撃を?(出した|与えた)時/] },
   { id:'force',       label:'フォース付与',   category:'selfbuf',  patterns:[/フォース/] },
   { id:'mebius',      label:'メビウスフォース',category:'selfbuf', patterns:[/メビウスフォース/] },
   { id:'elem_dmg',    label:'属性ダメージ+',  category:'selfbuf',  patterns:[/属性ダメージ\+/, /属性ダメージを[^。]*上げ/, /属性ダメージ[^。]*高い/] },
@@ -559,7 +561,9 @@ function skillTags(s) {
   if (!text.trim()) return [];
   const hit = [];
   TAG_DEFS.forEach(function(def){
-    if (def.patterns.some(function(re){ return re.test(text); })) hit.push(def.id);
+    let t = text;
+    if (def.exclude) def.exclude.forEach(function(re){ t = t.replace(new RegExp(re.source, 'g'), '　'); });
+    if (def.patterns.some(function(re){ return re.test(t); })) hit.push(def.id);
   });
   return hit;
 }
@@ -568,9 +572,13 @@ function markHit(text, tagId) {
   const raw = String(text == null ? '' : text);
   const def = tagId ? TAG_DEFS.find(function(d){ return d.id === tagId; }) : null;
   if (!def || !raw) return esc(raw);
+  let scan = raw;
+  if (def.exclude) def.exclude.forEach(function(re){
+    scan = scan.replace(new RegExp(re.source, 'g'), function(m){ return '　'.repeat(m.length); });
+  });
   let ranges = [];
   def.patterns.forEach(function(re){
-    const m = re.exec(raw);
+    const m = re.exec(scan);
     if (m && m[0]) ranges.push([m.index, m.index + m[0].length]);
   });
   if (!ranges.length) return esc(raw);
