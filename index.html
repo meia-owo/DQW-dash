@@ -75,6 +75,36 @@ textarea { min-height: 120px; font-family: ui-monospace, monospace; font-size: 1
 .steal-inner { background: var(--innerBg); border: 1px solid #d88a3a55; border-radius: 10px; padding: 10px 12px; }
 .steal-inner.unst { border-color: #d86a6a55; }
 .hidden { display: none; }
+/* ---- 効果フィルタ ---- */
+#tagTrigger { width: 100%; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 12px 16px; font-size: 14px; }
+#tagBackdrop { position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 40; }
+#tagPanel {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 50;
+  max-height: 82vh; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch;
+  background: var(--cardBg); border-top: 1px solid var(--cardBorder); border-radius: 18px 18px 0 0;
+  padding: 0 14px calc(14px + env(safe-area-inset-bottom));
+  box-shadow: 0 -8px 24px rgba(0,0,0,.28);
+}
+.sheet-head {
+  position: sticky; top: 0; z-index: 2; background: var(--cardBg);
+  padding: 10px 0 8px; border-bottom: 1px solid var(--divider); text-align: center;
+}
+.sheet-head .grip { width: 42px; height: 4px; border-radius: 2px; background: var(--cardBorder); margin: 0 auto 8px; }
+.sheet-head .ttl { font-size: 12px; font-weight: 700; letter-spacing: .08em; color: var(--gold); }
+.sheet-foot { position: sticky; bottom: 0; z-index: 2; background: var(--cardBg); padding: 10px 0 4px; border-top: 1px solid var(--divider); }
+.tag-cat { font-size: 12px; font-weight: 700; letter-spacing: .08em; color: var(--goldText); margin: 12px 0 6px; }
+.tag-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 4px; padding-bottom: 10px; border-bottom: 1px dashed var(--divider); }
+.tag-btn {
+  font-size: 12.5px; font-weight: 700; padding: 8px 4px; min-height: 44px; border-radius: 10px; cursor: pointer;
+  font-family: inherit; border: 1px solid var(--cardBorder); background: var(--inputBg); color: var(--btnText);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.3;
+}
+.tag-btn .cnt { font-size: 11px; opacity: .6; font-weight: 400; }
+.tag-btn.on { border-color: var(--gold); background: linear-gradient(135deg,#c9a24b,#a9822f); color: var(--btnActiveText); }
+.tag-btn.on .cnt { opacity: .85; }
+.tag-btn.zero { opacity: .35; pointer-events: none; }
+.hit-badge { display: inline-block; font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 6px; background: #f5edd8; color: #8a6a20; white-space: nowrap; }
+.hit-mark { display: inline-block; font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 6px; background: #c9a24b33; border: 1px solid #c9a24b88; color: var(--goldText); white-space: nowrap; }
 </style>
 </head>
 <body>
@@ -103,12 +133,11 @@ textarea { min-height: 120px; font-family: ui-monospace, monospace; font-size: 1
       ※ OFF設定のスキルは奪えない／こころのいきなりは対象外／魔王の剣が一番右の場合は一番左から奪う
     </div>
   </div>
-  <div class="card">
-    <div class="row" style="margin-bottom:0">
-      <input type="text" id="stealSearch" placeholder="武器名で検索">
-      <select id="stealType" style="flex:0 0 32%"></select>
-    </div>
+  <div class="card" id="tagFilterCard">
+    <button class="btn" id="tagTrigger">⚙ 効果でしぼりこみ</button>
   </div>
+  <div id="tagBackdrop" class="hidden"></div>
+  <div id="tagPanel" class="hidden"></div>
   <div id="stealList"></div>
 </div>
 
@@ -476,12 +505,89 @@ function simulate(base, inh, rendo, lb) {
   return { skills: skills, inheritedSkills: inheritedSkills, passives: passives, inheritedPassives: inheritedPassives, atk: atk };
 }
 
+/* ---- いきなりスキル効果タグ定義 ---- */
+const TAG_CATS = [
+  { id:'selfbuf',  label:'自己バフ' },
+  { id:'defense',  label:'防御・耐性' },
+  { id:'order',    label:'行動順・ターン' },
+  { id:'debuff',   label:'敵デバフ' },
+  { id:'area',     label:'領域・ゾーン' },
+  { id:'resource', label:'リソース' },
+  { id:'boost',    label:'系統特効ブースト' }
+];
+const TAG_DEFS = [
+  { id:'atk_up',      label:'攻撃力アップ',   category:'selfbuf',  patterns:[/こうげき力を[^。]*上げ/, /攻撃力を[^。]*上げ/, /バイキルト/] },
+  { id:'def_up',      label:'守備力アップ',   category:'selfbuf',  patterns:[/しゅび力を[^。]*上げ/, /守備力を[^。]*上げ/, /スクルト/] },
+  { id:'spd_up',      label:'すばやさアップ', category:'selfbuf',  patterns:[/すばやさを[^。]*上げ/, /ピオラ/] },
+  { id:'tension',     label:'テンション',     category:'selfbuf',  patterns:[/テンション/] },
+  { id:'crit',        label:'会心強化',       category:'selfbuf',  patterns:[/会心/] },
+  { id:'force',       label:'フォース付与',   category:'selfbuf',  patterns:[/フォース/] },
+  { id:'mebius',      label:'メビウスフォース',category:'selfbuf', patterns:[/メビウスフォース/] },
+  { id:'elem_dmg',    label:'属性ダメージ+',  category:'selfbuf',  patterns:[/属性ダメージ\+/, /属性ダメージを[^。]*上げ/, /属性ダメージ[^。]*高い/] },
+  { id:'shield',      label:'まもりのたて',   category:'defense',  patterns:[/まもりのたて/, /状態異常をふせぐ/, /悪い状態変化/] },
+  { id:'spell_cut',   label:'呪文軽減・無効', category:'defense',  patterns:[/呪文ダメージ[^。]*軽減/, /呪文ダメージ[^。]*無効/] },
+  { id:'breath_cut',  label:'ブレス軽減',     category:'defense',  patterns:[/ブレス[^。]*軽減/, /ブレス[^。]*無効/] },
+  { id:'survive',     label:'HP1で生存',      category:'defense',  patterns:[/HP1で/, /致死ダメージ/, /生き残る/] },
+  { id:'hadou_guard', label:'いてはガード', category:'defense',  patterns:[/いてつくはどう/] },
+  { id:'nullify',     label:'無効化・反射',   category:'defense',  patterns:[/無効にする/, /反射/] },
+  { id:'first',       label:'先制',           category:'order',    patterns:[/先制/, /優先して行動/] },
+  { id:'first_fix',   label:'確定先制',       category:'order',    patterns:[/必ず先制/, /確定先制/, /キングタイム/, /先制[^。]*確定/] },
+  { id:'reaction',    label:'再行動',         category:'order',    patterns:[/再行動/] },
+  { id:'extend',      label:'効果延長',       category:'order',    patterns:[/延長/] },
+  { id:'kiai',        label:'きあいため',     category:'order',    patterns:[/きあいため/] },
+  { id:'freeze',      label:'凍結付与',       category:'debuff',   patterns:[/凍結/] },
+  { id:'debuff_atk',  label:'攻撃減',         category:'debuff',   patterns:[/こうげき力を[^。]*下げ/, /攻撃力を[^。]*下げ/] },
+  { id:'debuff_def',  label:'守備減',         category:'debuff',   patterns:[/しゅび力を[^。]*下げ/, /守備力を[^。]*下げ/] },
+  { id:'debuff_spd',  label:'すばやさ減',     category:'debuff',   patterns:[/すばやさを[^。]*下げ/, /すばやさ-/] },
+  { id:'resist_down', label:'耐性減',         category:'debuff',   patterns:[/耐性を[^。]*減らし/, /耐性を[^。]*下げ/, /耐性[^。]*強制的/, /耐性[^。]*減/] },
+  { id:'dispel',      label:'強化効果解除',   category:'debuff',   patterns:[/強化効果を[^。]*解除/, /良い効果を[^。]*解除/] },
+  { id:'field',       label:'領域',           category:'area',     patterns:[/領域/] },
+  { id:'field_over',  label:'超越領域',       category:'area',     patterns:[/超越領域/] },
+  { id:'zone',        label:'ゾーン',         category:'area',     patterns:[/ゾーン/] },
+  { id:'mp',          label:'MP回復・消費減',         category:'resource', patterns:[/MPを[^。]*回復/, /MP回復/, /消費MP[^。]*(軽減|減|なし|0)/, /MP消費[^。]*(軽減|減|なし|0)/, /消費[^。]*軽減/] },
+  { id:'hp',          label:'HP回復',         category:'resource', patterns:[/HPを[^。]*回復/, /HPが[^。]*回復/] },
+  { id:'family_boost',label:'系統特効ブースト',category:'boost',   patterns:[/系へのダメージ\+」?の効果値/, /効果値を[0-9．.]+倍/] }
+];
+
+/* 1スキル単位のタグ判定（バッジ表示にも使う） */
+function skillTags(s) {
+  const text = ((s && s.name) || '') + ' ' + ((s && s.desc) || '');
+  if (!text.trim()) return [];
+  const hit = [];
+  TAG_DEFS.forEach(function(def){
+    if (def.patterns.some(function(re){ return re.test(text); })) hit.push(def.id);
+  });
+  return hit;
+}
+function skillHasTag(s, tagId) { return tagId ? skillTags(s).indexOf(tagId) !== -1 : false; }
+
+/* 1武器のいきなりスキル群からタグID配列を返す（重複なし） */
+function extractTags(weapon) {
+  const hit = new Set();
+  (weapon.ikinari || []).forEach(function(s){
+    skillTags(s).forEach(function(t){ hit.add(t); });
+  });
+  return Array.from(hit);
+}
+
+let TAG_INDEX = new Map();   // tagId -> Set(weaponId)
+let WEAPON_TAGS = new Map(); // weaponId -> string[]
+function buildTagIndex(list) {
+  TAG_INDEX = new Map(TAG_DEFS.map(function(d){ return [d.id, new Set()]; }));
+  WEAPON_TAGS = new Map();
+  (list || []).forEach(function(w){
+    if (w.id === 'maou_no_ken') return;
+    const tags = extractTags(w);
+    WEAPON_TAGS.set(w.id, tags);
+    tags.forEach(function(t){ TAG_INDEX.get(t).add(w.id); });
+  });
+}
+
 /* ---- 奪取逆引き ---- */
-function stealTargets(weapons, search, typeFilter) {
+function stealTargets(weapons, activeTag) {
   return weapons
     .filter(function(w){ return w.id !== 'maou_no_ken'; })
-    .filter(function(w){ return typeFilter === 'すべて' || w.type === typeFilter; })
-    .filter(function(w){ return !search || w.name.indexOf(search) !== -1; })
+    .filter(function(w){ return !activeTag || (TAG_INDEX.get(activeTag) && TAG_INDEX.get(activeTag).has(w.id)); })
     .map(function(w){
       const top = (w.ikinari && w.ikinari.length > 0) ? w.ikinari[0] : null;
       const unstealable = top ? UNSTEALABLE.indexOf(top.name) !== -1 : false;
@@ -603,7 +709,7 @@ function loadWeapons() {
   if (raw) { try { const p = JSON.parse(raw); if (Array.isArray(p) && p.length) return p; } catch(e) {} }
   return seedWeapons();
 }
-function persist() { lsSet(LS_KEY, JSON.stringify(weapons)); }
+function persist() { lsSet(LS_KEY, JSON.stringify(weapons)); buildTagIndex(weapons); }
 
 const $ = function(id) { return document.getElementById(id); };
 function esc(s) { return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
@@ -626,6 +732,7 @@ function showTab(tab) {
     $('pane-' + x).classList.toggle('hidden', x !== tab);
     $('tab-' + x).classList.toggle('active', x === tab);
   });
+  if (tab !== 'steal') { activeTag = null; openTagPanel(false); renderTagTrigger(); }
   if (tab === 'steal') renderSteal();
   if (tab === 'sim') renderSim();
   if (tab === 'db') renderDB();
@@ -641,7 +748,7 @@ function fillTypeSelect(sel, withAll) {
   sel.innerHTML = html;
 }
 function renderSteal() {
-  const list = stealTargets(weapons, $('stealSearch').value.trim(), $('stealType').value || 'すべて');
+  const list = stealTargets(weapons, activeTag);
   let html = '';
   list.forEach(function(item) {
     const w = item.weapon, top = item.top, unst = item.unstealable;
@@ -657,6 +764,7 @@ function renderSteal() {
       html += '<span style="font-size:10px;font-weight:700;color:' + (unst ? '#d86a6a' : '#e0a04b') + '">' + (unst ? '⛔ 奪取不可' : '✋ 奪取対象（一番上のいきなり）') + '</span>';
       html += '<span style="font-size:13px;font-weight:700;color:' + (unst ? '#d89a9a' : 'var(--skillName)') + '">' + esc(top.name) + '</span>';
       if (top.cond) html += chip('#9a6fd0', top.cond);
+      if (activeTag && skillHasTag(top, activeTag)) html += '<span class="hit-mark">◎ ' + esc(tagLabel(activeTag)) + '</span>';
       html += '</div>';
       html += '<div style="font-size:11.5px;color:var(--skillDesc);line-height:1.6">' + esc(top.desc || '効果データなし') + '</div>';
 
@@ -666,7 +774,11 @@ function renderSteal() {
         for (let i = 1; i < w.ikinari.length; i++) {
           const ik = w.ikinari[i];
           html += '<div style="margin-bottom:6px;">';
-          html += '<div style="font-size:12.5px;font-weight:700;color:var(--skillName)">' + esc(ik.name) + (ik.cond ? '〔' + esc(ik.cond) + '〕' : '') + '</div>';
+          const ikHit = activeTag && skillHasTag(ik, activeTag);
+          html += '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">';
+          html += '<span style="font-size:12.5px;font-weight:700;color:var(--skillName)">' + esc(ik.name) + (ik.cond ? '〔' + esc(ik.cond) + '〕' : '') + '</span>';
+          if (ikHit) html += '<span class="hit-badge">⚠ 要ON/OFF切替</span>';
+          html += '</div>';
           html += '<div style="font-size:11px;color:var(--skillDesc);line-height:1.5">' + esc(ik.desc || '効果データなし') + '</div>';
           html += '</div>';
         }
@@ -679,10 +791,67 @@ function renderSteal() {
     }
     html += '</div>';
   });
-  $('stealList').innerHTML = html || '<div class="note">該当する武器がありません</div>';
+  $('stealList').innerHTML = html || '<div class="card"><div style="font-size:12px;color:var(--textSub);line-height:1.8">該当する武器がありません（このタグを持ついきなりスキルは未登録です）</div></div>';
 }
-$('stealSearch').addEventListener('input', renderSteal);
-$('stealType').addEventListener('change', renderSteal);
+
+/* ---- 効果フィルタ UI ---- */
+let activeTag = null;
+function tagLabel(id) {
+  const d = TAG_DEFS.find(function(x){ return x.id === id; });
+  return d ? d.label : '';
+}
+function renderTagTrigger() {
+  const btn = $('tagTrigger');
+  btn.classList.toggle('active', !!activeTag);
+  btn.innerHTML = activeTag
+    ? '<span>⚙ ' + esc(tagLabel(activeTag)) + '</span><span id="tagClear" style="font-size:15px;padding:0 4px">✕</span>'
+    : '⚙ 効果でしぼりこみ';
+}
+function renderTagPanel() {
+  let html = '';
+  TAG_CATS.forEach(function(cat){
+    const defs = TAG_DEFS.filter(function(d){ return d.category === cat.id; });
+    if (!defs.length) return;
+    html += '<div class="tag-cat">' + esc(cat.label) + '</div><div class="tag-grid">';
+    defs.forEach(function(d){
+      const cnt = (TAG_INDEX.get(d.id) || new Set()).size;
+      html += '<button type="button" class="tag-btn' + (activeTag === d.id ? ' on' : '') + (cnt === 0 ? ' zero' : '') + '" data-tag="' + d.id + '">';
+      html += '<span>' + esc(d.label) + '</span><span class="cnt">' + cnt + '</span></button>';
+    });
+    html += '</div>';
+  });
+  const head = '<div class="sheet-head"><div class="grip"></div><div class="ttl">⚙ 効果でしぼりこみ</div></div>';
+  const foot = '<div class="sheet-foot"><button class="btn full" type="button" id="tagReset">' + (activeTag ? '解除（全件表示）' : '閉じる') + '</button></div>';
+  $('tagPanel').innerHTML = head + html + foot;
+  $('tagPanel').scrollTop = 0;
+}
+function openTagPanel(open) {
+  if (open) renderTagPanel();
+  $('tagPanel').classList.toggle('hidden', !open);
+  $('tagBackdrop').classList.toggle('hidden', !open);
+  document.body.style.overflow = open ? 'hidden' : '';
+}
+function setActiveTag(id) {
+  activeTag = (activeTag === id) ? null : id;
+  renderTagTrigger();
+  renderSteal();
+}
+$('tagTrigger').addEventListener('click', function(e){
+  if (e.target && e.target.id === 'tagClear') {
+    activeTag = null; renderTagTrigger(); renderSteal(); openTagPanel(false);
+    return;
+  }
+  openTagPanel($('tagPanel').classList.contains('hidden'));
+});
+$('tagPanel').addEventListener('click', function(e){
+  const reset = e.target.closest('#tagReset');
+  if (reset) { activeTag = null; renderTagTrigger(); renderSteal(); openTagPanel(false); return; }
+  const btn = e.target.closest('.tag-btn');
+  if (!btn) return;
+  setActiveTag(btn.getAttribute('data-tag'));
+  openTagPanel(false);
+});
+$('tagBackdrop').addEventListener('click', function(){ openTagPanel(false); });
 
 /* ============ 継承タブ ============ */
 function renderSim() {
@@ -929,7 +1098,6 @@ $('exportBtn').addEventListener('click', function(){
 function boot(initialWeapons) {
   weapons = initialWeapons;
   applyTheme(lsGet(LS_THEME) || 'dark');
-  fillTypeSelect($('stealType'), true);
   (function(){
     let fHtml = '<option value="すべて">全種</option>';
     WEAPON_TYPES.forEach(function(t){ fHtml += '<option value="' + t + '">' + t + '</option>'; });
@@ -937,6 +1105,8 @@ function boot(initialWeapons) {
   })();
   fillTypeSelect($('newType'), false);
   $('dbListFilter').value = state.dbListFilter;
+  buildTagIndex(weapons);
+  renderTagTrigger();
   showTab('steal');
 }
 
