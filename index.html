@@ -811,7 +811,7 @@ function renderSteal() {
       html += '<div class="steal-inner' + (unst ? ' unst' : '') + (topHit ? ' hit' : '') + '">';
       html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap">';
       html += '<span style="font-size:10px;font-weight:700;color:' + (unst ? '#d86a6a' : '#e0a04b') + '">' + (unst ? '⛔ 奪取不可' : '✋ 奪取対象（一番上のいきなり）') + '</span>';
-      html += '<span style="font-size:13px;font-weight:700;color:' + (unst ? '#d89a9a' : 'var(--skillName)') + '">' + markHit(top.name, topHit ? activeTag : null) + '</span>';
+      html += '<span style="font-size:13px;font-weight:700;color:' + (unst ? '#d89a9a' : 'var(--skillName)') + '">' + esc(top.name) + '</span>';
       if (top.cond) html += chip('#9a6fd0', top.cond);
       if (topHit) html += '<span class="hit-mark">◎ ' + esc(tagLabel(activeTag)) + '</span>';
       html += '</div>';
@@ -825,7 +825,7 @@ function renderSteal() {
           const ikHit = activeTag && skillHasTag(ik, activeTag);
           html += '<div style="margin-bottom:6px;" class="' + (ikHit ? 'ik-hit' : '') + '">';
           html += '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">';
-          html += '<span style="font-size:12.5px;font-weight:700;color:var(--skillName)">' + markHit(ik.name, ikHit ? activeTag : null) + (ik.cond ? '〔' + esc(ik.cond) + '〕' : '') + '</span>';
+          html += '<span style="font-size:12.5px;font-weight:700;color:var(--skillName)">' + esc(ik.name) + (ik.cond ? '〔' + esc(ik.cond) + '〕' : '') + '</span>';
           if (ikHit) html += '<span class="hit-badge">⚠ 要ON/OFF切替</span>';
           html += '</div>';
           html += '<div style="font-size:11px;color:var(--skillDesc);line-height:1.5">' + (ik.desc ? markHit(ik.desc, ikHit ? activeTag : null) : '効果データなし') + '</div>';
