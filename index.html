@@ -1306,9 +1306,30 @@ function boot(initialWeapons) {
   showTab('steal');
 }
 
+/* 既存(localStorage)データに、seedWeapons()側にだけ存在する新規武器を追記マージする。
+   既存の武器（検証済みデータ含む）は一切上書きしない。 */
+function mergeWithSeed(existing) {
+  const ids = new Set(existing.map(function(w){ return w.id; }));
+  const additions = seedWeapons().filter(function(w){ return !ids.has(w.id); });
+  if (!additions.length) return { list: existing, addedCount: 0 };
+  return { list: existing.concat(additions), addedCount: additions.length };
+}
+
 (function initApp(){
   const local = lsGet(LS_KEY);
-  if (local) { try { const p = JSON.parse(local); if (Array.isArray(p) && p.length) { boot(p); return; } } catch(e) {} }
+  if (local) {
+    try {
+      const p = JSON.parse(local);
+      if (Array.isArray(p) && p.length) {
+        const merged = mergeWithSeed(p);
+        if (merged.addedCount > 0) {
+          lsSet(LS_KEY, JSON.stringify(merged.list));
+        }
+        boot(merged.list);
+        return;
+      }
+    } catch(e) {}
+  }
   let booted = false;
   const bootOnce = function(w) { if (booted) return; booted = true; boot(w); };
   const timeoutId = setTimeout(function(){ bootOnce(seedWeapons()); }, 2500);
