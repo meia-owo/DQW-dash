@@ -842,6 +842,8 @@ function buildBatchPrompt(weapons, filterType) {
   let targets = weapons;
   if (filterType === 'deficient_only') {
     targets = weapons.filter(function(w){ return checkDeficient(w); });
+  } else if (filterType === 'important_only') {
+    targets = weapons.filter(function(w){ return !w.verified && w.name && w.name.indexOf('★') === 0; });
   } else if (filterType !== 'すべて') {
     targets = weapons.filter(function(w){ return !w.verified && w.type === filterType; });
   } else {
@@ -1190,6 +1192,10 @@ function renderDB() {
   let bHtml = '<option value="すべて">⚠️未検証すべての武器種（' + weapons.filter(function(w){return !w.verified;}).length + '本）</option>';
   if (defCnt > 0) {
     bHtml += '<option value="deficient_only">🚨データ不備の武器のみ（' + defCnt + '本）</option>';
+  }
+  const importantCnt = weapons.filter(function(w){ return !w.verified && w.name && w.name.indexOf('★') === 0; }).length;
+  if (importantCnt > 0) {
+    bHtml += '<option value="important_only">★重要武器のみ（' + importantCnt + '本）</option>';
   }
   WEAPON_TYPES.forEach(function(t){
     const n = weapons.filter(function(w){ return !w.verified && w.type === t; }).length;
