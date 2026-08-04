@@ -1,4 +1,4 @@
-<!-- index.html v1.2.4 -->
+<!-- index.html v1.3.0 (効果フィルタ 29→45タグに拡張) -->
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -683,12 +683,19 @@ const TAG_DEFS = [
   { id:'force',       label:'フォース付与',   category:'selfbuf',  patterns:[/フォース/] },
   { id:'mebius',      label:'メビウスフォース',category:'selfbuf', patterns:[/メビウスフォース/] },
   { id:'elem_dmg',    label:'属性ダメージ+',  category:'selfbuf',  hl:[/属性ダメージ/, /上げ/, /高い/], patterns:[/属性ダメージ\+/, /属性ダメージを[^。]*上げ/, /属性ダメージ[^。]*高い/] },
+  { id:'trait_rate_up',label:'職業特性発動率UP',category:'selfbuf', hl:[/発動率/, /上げ/], patterns:[/職業固有特性の発動率を[^。]*上げ/, /(影縫い|影縛り|分身の術)の発動率[^。]*上げ/] },
+  { id:'stat_up_all', label:'全ステ/レベル上昇',category:'selfbuf', hl:[/ステータス/, /レベル/, /上げ/, /上昇/], patterns:[/ステータスが[^。]*上昇/, /レベルを[^。]*上げ/, /戦闘中のレベルを[^。]*上げ/] },
+  { id:'spell_pow_up',label:'攻撃呪文威力UP', category:'selfbuf',  hl:[/攻撃呪文/, /呪文の?威力/, /上げ/], patterns:[/攻撃呪文の威力を[^。]*上げ/, /呪文の?威力を[^。]*上げ/] },
+  { id:'evasion_up',  label:'ガード・みかわしUP',category:'selfbuf', hl:[/ガード率/, /みかわし率/, /上げ/], patterns:[/ガード率を?[^。]*上げ/, /みかわし率を?[^。]*上げ/] },
+  { id:'resist_up',   label:'耐性アップ（自己）',category:'selfbuf', hl:[/耐性/, /上げ/], patterns:[/耐性を[^。]*上げ/] },
+  { id:'stat_cap_up', label:'HP/MP上限アップ', category:'selfbuf',  hl:[/上限/, /上げ/], patterns:[/最大HPと最大MPの上限を[^。]*上げ/, /上限を[0-9]+%上げ/] },
   { id:'shield',      label:'まもりのたて',   category:'defense',  hl:[/まもりのたて/, /状態異常/, /悪い状態変化/], patterns:[/まもりのたて/, /状態異常をふせぐ/, /悪い状態変化/] },
   { id:'spell_cut',   label:'呪文軽減・無効', category:'defense',  hl:[/呪文ダメージ/, /軽減/, /無効/], patterns:[/呪文ダメージ[^。]*軽減/, /呪文ダメージ[^。]*無効/] },
   { id:'breath_cut',  label:'ブレス軽減',     category:'defense',  hl:[/ブレス/, /軽減/, /無効/], patterns:[/ブレス[^。]*軽減/, /ブレス[^。]*無効/] },
   { id:'survive',     label:'HP1で生存',      category:'defense',  hl:[/HP1/, /致死ダメージ/, /生き残る/], patterns:[/HP1で/, /致死ダメージ/, /生き残る/] },
   { id:'hadou_guard', label:'いてはガード', category:'defense',  patterns:[/いてつくはどう/] },
   { id:'nullify',     label:'無効化・反射',   category:'defense',  hl:[/無効にする/, /反射/], patterns:[/無効にする/, /反射/] },
+  { id:'dmg_reduce_all',label:'被ダメージ全般軽減',category:'defense', hl:[/軽減/], patterns:[/斬撃・体技・呪文・ブレスダメージを[0-9]+%軽減/] },
   { id:'first',       label:'先制',           category:'order',    hl:[/先制/, /優先して行動/], patterns:[/先制/, /優先して行動/] },
   { id:'first_fix',   label:'確定先制',       category:'order',    hl:[/必ず先制/, /確定先制/, /キングタイム/], patterns:[/必ず先制/, /確定先制/, /キングタイム/, /先制[^。]*確定/] },
   { id:'reaction',    label:'再行動',         category:'order',    patterns:[/再行動/] },
@@ -700,6 +707,11 @@ const TAG_DEFS = [
   { id:'debuff_spd',  label:'すばやさ減',     category:'debuff',   hl:[/すばやさ/, /下げ/], patterns:[/すばやさを[^。]*下げ/, /すばやさ-/] },
   { id:'resist_down', label:'耐性減',         category:'debuff',   hl:[/耐性/, /減らし/, /下げ/], patterns:[/耐性を[^。]*減らし/, /耐性を[^。]*下げ/, /耐性[^。]*強制的/, /耐性[^。]*減/] },
   { id:'dispel',      label:'強化効果解除',   category:'debuff',   hl:[/強化効果/, /良い効果/, /解除/], patterns:[/強化効果を[^。]*解除/, /良い効果を[^。]*解除/] },
+  { id:'status_atk',  label:'状態異常付与（攻撃）',category:'debuff', hl:[/付与/], patterns:[/恐怖Lv[0-9]+[^。]*付与/, /衰弱Lv[0-9]+[^。]*付与/, /毒を[^。]*与え/, /混乱を[^。]*与え/] },
+  { id:'annihilate',  label:'撃破ライン（即死級）',category:'debuff', hl:[/消滅させる/, /消し去る/], patterns:[/消滅させる/, /消し去る/] },
+  { id:'stun',        label:'行動不能付与',   category:'debuff',   hl:[/休みを付与/], patterns:[/行動の休みを付与/, /1ターンの休みを付与/] },
+  { id:'seal',        label:'封印（呪文/ブレス）',category:'debuff', hl:[/封じる/], patterns:[/呪文を封じる/, /ブレスを封じる/] },
+  { id:'morale_down', label:'戦意喪失付与',   category:'debuff',   hl:[/戦意喪失/], patterns:[/戦意喪失/] },
   { id:'field',       label:'領域',           category:'area',     patterns:[/領域/] },
   { id:'field_over',  label:'超越領域',       category:'area',     patterns:[/超越領域/] },
   { id:'zone',        label:'ゾーン',         category:'area',     patterns:[/ゾーン/] },
