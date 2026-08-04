@@ -1,4 +1,4 @@
-<!-- index.html v1.3.0 (効果フィルタ 29→45タグに拡張) -->
+<!-- index.html v1.6.0 (id生成の長音符バグ修正／mergeWithSeedの名前重複防止) -->
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -190,6 +190,7 @@ body.light .hl {
         <option value="all">すべて表示</option>
         <option value="unverified">⚠️未検証のみ表示</option>
         <option value="deficient">🚨データ不備のみ表示</option>
+        <option value="duplicate">🔁 重複のみ表示</option>
       </select>
     </div>
     <div id="dbList"></div>
@@ -455,7 +456,7 @@ const STUB_LIST = [
 function makeStub(row) {
   const name = row[0], type = row[1], dbId = row[2];
   return {
-    id: 'w_' + name.replace(/[^ぁ-んァ-ヶ一-龠a-zA-Z0-9]/g, ''),
+    id: 'w_' + name.replace(/[^ぁ-んァ-ヶー一-龠a-zA-Z0-9]/g, ''),
     name: name, type: type, rarity: 5, attribute: '要取得',
     attack0: null, attack4: null,
     skills: [{ name: '（要データ取得）', mp: '?', desc: '「DB管理」→取得用プロンプトで埋めてください', inheritable: true }],
@@ -1174,6 +1175,10 @@ function renderDB() {
     targetWeapons = weapons.filter(function(w){ return !w.verified; });
   } else if (state.dbListFilter === 'deficient') {
     targetWeapons = weapons.filter(function(w){ return checkDeficient(w); });
+  } else if (state.dbListFilter === 'duplicate') {
+    const nc = {};
+    weapons.forEach(function(w){ nc[w.name] = (nc[w.name] || 0) + 1; });
+    targetWeapons = weapons.filter(function(w){ return nc[w.name] > 1; });
   }
 
   weapons.forEach(function(w){ if (checkDeficient(w)) defCnt++; });
@@ -1184,16 +1189,61 @@ function renderDB() {
   if (targetWeapons.length === 0) {
     html = '<div class="note" style="text-align:center;padding:10px 0">該当する武器がありません</div>';
   } else {
+    const nameCounts = {};
+    weapons.forEach(function(w){ nameCounts[w.name] = (nameCounts[w.name] || 0) + 1; });
+    // 重複グループごとに「残すべき1件」を判定するためのスコア
+    function weaponScore(w) {
+      let s = 0;
+      s += (w.ikinari || []).length * 3;
+      s += (w.chosen || []).length * 2;
+      s += (w.skills || []).filter(function(x){ return x.desc && x.desc.indexOf('要データ取得') === -1; }).length;
+      s += (w.passives || []).length;
+      s += (w.limitBreakEffects || []).length;
+      if (w.verified) s += 5;
+      if (w.attack0 != null) s += 1;
+      if (w.attack4 != null) s += 1;
+      if (w.note) s += 1;
+      return s;
+    }
+    const keepIdByName = {};
+    Object.keys(nameCounts).forEach(function(name){
+      if (nameCounts[name] <= 1) return;
+      const group = weapons.filter(function(w){ return w.name === name; });
+      let best = group[0], bestScore = weaponScore(group[0]);
+      group.forEach(function(w){
+        const sc = weaponScore(w);
+        if (sc > bestScore) { best = w; bestScore = sc; }
+      });
+      keepIdByName[name] = best.id;
+    });
     targetWeapons.forEach(function(w){
       const isDef = checkDeficient(w);
+      const isDup = nameCounts[w.name] > 1;
+      const isRecommendDelete = isDup && keepIdByName[w.name] !== w.id;
       html += '<div class="db-row"><span style="font-size:14px">' + (isDef ? '🚨' : (w.verified ? '✅' : '⚠️')) + '</span>';
-      html += '<div class="info"><div class="nm">' + esc(w.name) + '</div><div class="src">' + esc(w.type) + ' ／ ' + esc(w.source) + '</div></div>';
+      html += '<div class="info"><div class="nm">' + esc(w.name)
+        + (isDup ? ' <span class="chip" style="background:#d86a6a22;border:1px solid #d86a6a88;color:#d86a6a">🔁 重複</span>' : '')
+        + (isRecommendDelete ? ' <span class="chip" style="background:#e0632f22;border:1px solid #e0632f88;color:#e0632f">🗑 削除推奨</span>' : (isDup ? ' <span class="chip" style="background:#5fbf8f22;border:1px solid #5fbf8f88;color:#5fbf8f">✅ 残す推奨</span>' : ''))
+        + '</div><div class="src">' + esc(w.type) + ' ／ ' + esc(w.id) + ' ／ ' + esc(w.source) + '</div></div>';
       if (!w.verified || isDef) html += '<button class="btn" data-wid="' + w.id + '">再取得プロンプト</button>';
+      html += '<button class="btn danger" data-delwid="' + w.id + '" title="この武器を削除">🗑</button>';
       html += '</div>';
     });
   }
   $('dbList').innerHTML = html;
-  
+
+  Array.prototype.forEach.call($('dbList').querySelectorAll('button[data-delwid]'), function(b){
+    b.addEventListener('click', function(){
+      const w = weapons.find(function(x){ return x.id === b.dataset.delwid; });
+      if (!w) return;
+      if (!window.confirm('「' + w.name + '」（id: ' + w.id + '）を削除します。よろしいですか？')) return;
+      weapons = weapons.filter(function(x){ return x.id !== w.id; });
+      persist();
+      $('ioMsg').textContent = '🗑 「' + w.name + '」（id: ' + w.id + '）を削除しました';
+      renderDB();
+    });
+  });
+
   Array.prototype.forEach.call($('dbList').querySelectorAll('button[data-wid]'), function(b){
     b.addEventListener('click', function(){
       const w = weapons.find(function(x){ return x.id === b.dataset.wid; });
@@ -1325,10 +1375,13 @@ function boot(initialWeapons) {
 }
 
 /* 既存(localStorage)データに、seedWeapons()側にだけ存在する新規武器を追記マージする。
-   既存の武器（検証済みデータ含む）は一切上書きしない。 */
+   既存の武器（検証済みデータ含む）は一切上書きしない。
+   id生成ロジックの変更（長音符「ー」の扱い修正等）で同じ武器に別idが振られるケースがあるため、
+   id一致に加えて「同名武器が既に存在する場合」も追加をスキップし、重複の再発生を防ぐ。 */
 function mergeWithSeed(existing) {
   const ids = new Set(existing.map(function(w){ return w.id; }));
-  const additions = seedWeapons().filter(function(w){ return !ids.has(w.id); });
+  const names = new Set(existing.map(function(w){ return w.name; }));
+  const additions = seedWeapons().filter(function(w){ return !ids.has(w.id) && !names.has(w.name); });
   if (!additions.length) return { list: existing, addedCount: 0 };
   return { list: existing.concat(additions), addedCount: additions.length };
 }
